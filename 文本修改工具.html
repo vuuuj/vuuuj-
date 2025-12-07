@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON/Object 终极格式化工具 v4 (Fixed)</title>
+    <title>文本修改工具</title>
     <style>
         :root {
             --bg-color: #1e1e1e;
@@ -16,13 +16,7 @@
             --number-color: #b5cea8;
             --comment-color: #6a9955;
             --key-color: #9cdcfe;
-            
-            /* 定位高亮颜色 - 半透明不遮挡文本 */
-            --highlight-line-bg: rgba(45, 58, 74, 0.3);
-            --highlight-key-bg: rgba(255, 204, 0, 0.25);
-            --highlight-key-fg: #FFCC00;
-            --highlight-val-bg: rgba(102, 255, 102, 0.25);
-            --highlight-val-fg: #66FF66;
+            --highlight-color: #ffff00;
         }
 
         body {
@@ -76,10 +70,49 @@
             letter-spacing: 0.5px;
         }
 
-        /* 恢复原始textarea样式 */
+        /* 编辑器容器 - 用于高亮显示 */
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #1e1e1e;
+            color: transparent;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre;
+            overflow: hidden;
+            tab-size: 4;
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+        
+        .editor-backdrop-inner {
+            position: relative;
+            min-height: 100%;
+        }
+
+        .editor-backdrop .highlight {
+            background-color: rgba(255, 255, 0, 0.4);
+            color: transparent;
+            border-radius: 2px;
+        }
+
         textarea {
             flex: 1;
-            background-color: #1e1e1e;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
             color: var(--text-color);
             border: 1px solid var(--border-color);
             padding: 10px;
@@ -91,49 +124,12 @@
             white-space: pre;
             overflow: auto;
             tab-size: 4;
+            position: relative;
+            z-index: 1;
+            box-sizing: border-box;
         }
 
         textarea:focus { border-color: var(--accent-color); }
-
-        /* 高亮overlay - 完全独立不影响布局 */
-        .output-wrapper {
-            flex: 1;
-            position: relative;
-            display: flex;
-        }
-
-        .highlight-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            pointer-events: none;
-            background: transparent;
-            color: transparent;
-            z-index: 1;
-            padding: 10px;
-            font-family: inherit;
-            font-size: 13px;
-            line-height: 1.5;
-            white-space: pre;
-            overflow: hidden;
-        }
-
-        .highlight-overlay span {
-            color: var(--text-color);
-        }
-
-        .highlight-key {
-            background-color: var(--highlight-key-bg);
-            color: var(--highlight-key-fg) !important;
-            font-weight: bold;
-        }
-
-        .highlight-val {
-            background-color: var(--highlight-val-bg);
-            color: var(--highlight-val-fg) !important;
-        }
 
         /* 保持原始controls宽度 */
         .controls {
@@ -354,17 +350,20 @@
 <body>
 
 <header>
-    <h1>JSON/Object Formatter & Batch Tool</h1>
+    <h1>文本修改工具v0.1</h1>
 </header>
 
 <div class="main-container">
     <!-- 左侧输入 -->
     <div class="editor-panel">
         <div class="panel-header">
-            <span>INPUT</span>
+            <span>INPUT (源数据)</span>
             <button onclick="app.clearInput()" class="link-btn">清空</button>
         </div>
-        <textarea id="input-area" placeholder="// 在此粘贴文本..." spellcheck="false"></textarea>
+        <div class="editor-container">
+            <div id="input-backdrop" class="editor-backdrop"></div>
+            <textarea id="input-area" placeholder="// 在此粘贴文本..." spellcheck="false"></textarea>
+        </div>
     </div>
 
     <!-- 中间控制 -->
@@ -415,13 +414,13 @@
                             合并同类项
                         </label>
                         <span class="batch-icon-btn" title="重新扫描可编辑字段" onclick="app.scanVariables()">↻ 刷新</span>
-                        <span class="batch-icon-btn" title="应用计算到文本" onclick="app.applyBatch()">⏎ 应用</span>
+                        <span class="batch-icon-btn" title="应用计算到输出" onclick="app.applyBatch()">⏎ 应用</span>
                     </div>
                 </div>
                   
                 <div id="batch-container" class="batch-container" style="flex:1; overflow-y:auto; padding-right:5px; border-top:1px solid #3e3e42; margin-top:8px;">
                     <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
-                        使用右上角“刷新”按钮加载可编辑字段
+                        使用右上角"刷新"按钮加载可编辑字段
                     </div>
                 </div>
             </div>
@@ -431,12 +430,12 @@
     <!-- 右侧输出 -->
     <div class="editor-panel">
         <div class="panel-header">
-            <span>OUTPUT</span>
+            <span>OUTPUT (处理结果)</span>
             <button onclick="app.copyOutput()" class="link-btn">复制结果</button>
         </div>
-        <div class="output-wrapper">
+        <div class="editor-container">
+            <div id="output-backdrop" class="editor-backdrop"></div>
             <textarea id="output-area" readonly placeholder="..."></textarea>
-            <div id="highlight-overlay" class="highlight-overlay"></div>
         </div>
     </div>
 </div>
@@ -446,24 +445,37 @@
 <script>
     const app = {
         batchMap: [],
-        valuePositions: new Map(), // fullPath -> {start, end}
+        inputPositions: new Map(),  // input区的位置映射: fullPath -> {start, end}
+        outputPositions: new Map(), // output区的位置映射: fullPath -> {start, end}
+        currentHighlight: null,     // 当前高亮的字段信息
 
         init() {
             this.inputEl = document.getElementById('input-area');
             this.outputEl = document.getElementById('output-area');
-            this.highlightOverlay = document.getElementById('highlight-overlay');
+            this.inputBackdrop = document.getElementById('input-backdrop');
+            this.outputBackdrop = document.getElementById('output-backdrop');
             this.batchContainer = document.getElementById('batch-container');
               
             this.inputEl.addEventListener('input', () => {
                 this.scheduleProcess();
                 this.scheduleAutoScan();
+                this.clearHighlight();
             });
 
-            // 保持滚动同步
-            this.outputEl.addEventListener('scroll', () => {
-                this.highlightOverlay.scrollTop = this.outputEl.scrollTop;
-                this.highlightOverlay.scrollLeft = this.outputEl.scrollLeft;
-            });
+            // 同步滚动: 使用 transform 移动 backdrop 内容，完全同步
+            const syncScroll = (textarea, backdrop) => {
+                const updateTransform = () => {
+                    const inner = backdrop.querySelector('.editor-backdrop-inner');
+                    if (inner) {
+                        inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+                    }
+                };
+                textarea.addEventListener('scroll', updateTransform);
+                // 初始同步
+                updateTransform();
+            };
+            syncScroll(this.inputEl, this.inputBackdrop);
+            syncScroll(this.outputEl, this.outputBackdrop);
 
             const keepComments = document.getElementById('opt-keep-comments');
             keepComments.addEventListener('click', (e) => {
@@ -495,10 +507,13 @@
         clearInput() {
             this.inputEl.value = '';
             this.outputEl.value = '';
-            this.highlightOverlay.innerHTML = '';
+            this.inputBackdrop.innerHTML = '';
+            this.outputBackdrop.innerHTML = '';
             this.batchContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">清空完成</div>';
             this.batchMap = [];
-            this.valuePositions.clear();
+            this.inputPositions.clear();
+            this.outputPositions.clear();
+            this.currentHighlight = null;
         },
 
         copyOutput() {
@@ -523,9 +538,13 @@
             this.process();
         },
 
+        // 核心处理函数 - 只处理 input -> output，不修改 input
         process() {
             const rawText = this.inputEl.value;
-            if (!rawText.trim()) return;
+            if (!rawText.trim()) {
+                this.outputEl.value = '';
+                return;
+            }
 
             const isMinify = document.getElementById('opt-minify').checked;
               
@@ -538,14 +557,24 @@
                 vectorKeys: document.getElementById('opt-vector-keys').value.split(',').map(k => k.trim()),
                 indent: 4,
                 adjustments: null,
-                sourceText: rawText // 传递原始文本用于注释位置判断
+                sourceText: rawText
             };
 
             try {
-                this.valuePositions.clear();
-                const result = Formatter.process(rawText, opts, this.valuePositions);
+                this.inputPositions.clear();
+                this.outputPositions.clear();
+                
+                // 扫描 input 的位置
+                Formatter.scanPositions(rawText, this.inputPositions);
+                
+                // 格式化并记录 output 的位置
+                const result = Formatter.process(rawText, opts, this.outputPositions);
                 this.outputEl.value = result;
-                this.highlightOverlay.innerHTML = '';
+                
+                // 更新 backdrop
+                this.updateBackdrop(this.inputBackdrop, rawText, null);
+                this.updateBackdrop(this.outputBackdrop, result, null);
+                
                 document.getElementById('status-bar').textContent = 'Processed';
             } catch (e) {
                 console.warn(e);
@@ -609,12 +638,16 @@
                     input.placeholder = mergeMode ? `(mix)` : field.val;
                     input.dataset.group = groupIndex;
                     input.dataset.field = fieldIndex;
-                    input.addEventListener('focus', () => {
-                        if (!mergeMode) this.focusField(parseInt(input.dataset.group, 10), parseInt(input.dataset.field, 10));
-                    });
-                    input.addEventListener('click', () => {
-                        if (!mergeMode) this.focusField(parseInt(input.dataset.group, 10), parseInt(input.dataset.field, 10));
-                    });
+                    
+                    // 点击和聚焦时定位并高亮
+                    const handleFocus = () => {
+                        if (!mergeMode) {
+                            this.focusField(parseInt(input.dataset.group, 10), parseInt(input.dataset.field, 10));
+                        }
+                    };
+                    input.addEventListener('focus', handleFocus);
+                    input.addEventListener('click', handleFocus);
+                    
                     input.addEventListener('keydown', (evt) => {
                         if (evt.key === 'Enter') {
                             evt.preventDefault();
@@ -632,6 +665,7 @@
             });
         },
 
+        // 应用批量计算 - 只影响 output，不修改 input
         applyBatch() {
             const inputs = document.querySelectorAll('.batch-input');
             const adjustments = new Map();
@@ -660,6 +694,7 @@
                 return;
             }
 
+            // 从原始 input 重新处理，应用调整，只更新 output
             const rawText = this.inputEl.value;
             const isMinify = document.getElementById('opt-minify').checked;
               
@@ -677,13 +712,14 @@
             };
 
             try {
-                const result = Formatter.process(rawText, opts, this.valuePositions);
-                this.inputEl.value = result;
+                this.outputPositions.clear();
+                const result = Formatter.process(rawText, opts, this.outputPositions);
+                
+                // 只更新 output，不修改 input
                 this.outputEl.value = result;
-                this.highlightOverlay.innerHTML = '';
-                  
-                this.scanVariables();
-                this.showStatus(`数值计算已应用`, 'success');
+                this.updateBackdrop(this.outputBackdrop, result, null);
+                
+                this.showStatus(`数值计算已应用到输出`, 'success');
             } catch(e) {
                 this.showStatus("应用失败: " + e.message, 'error');
             }
@@ -696,88 +732,110 @@
             return 'span-1';
         },
 
+        // 定位并高亮字段
         focusField(groupIndex, fieldIndex) {
             const field = this.batchMap[groupIndex]?.fields[fieldIndex];
             if (!field || !field.fullPath) return;
 
-            // 定位 input
-            if (typeof field.position === 'number') {
-                this.centerTextareaOnPosition(this.inputEl, field.position, false);
+            this.currentHighlight = field.fullPath;
+
+            // 定位和高亮 input
+            const inputPos = this.inputPositions.get(field.fullPath);
+            if (inputPos) {
+                this.highlightAndScroll(this.inputEl, this.inputBackdrop, inputPos.start, inputPos.end);
             }
 
-            // 定位 output
-            const posData = this.valuePositions.get(field.fullPath);
-            if (posData) {
-                this.centerTextareaOnPosition(this.outputEl, posData.start, false);
-                this.highlightField(field.fullPath, posData);
+            // 定位和高亮 output
+            const outputPos = this.outputPositions.get(field.fullPath);
+            if (outputPos) {
+                this.highlightAndScroll(this.outputEl, this.outputBackdrop, outputPos.start, outputPos.end);
             }
         },
 
-        highlightField(fullPath, posData) {
-            const outputText = this.outputEl.value;
-            if (!outputText || posData.start >= outputText.length) return;
+        // 高亮并滚动到指定位置
+        highlightAndScroll(textarea, backdrop, start, end) {
+            const text = textarea.value;
+            if (!text || start >= text.length) return;
 
-            const before = outputText.substring(0, posData.start);
-            const lineStart = before.lastIndexOf('\n') + 1;
-            const lineEnd = outputText.indexOf('\n', posData.end);
-            const actualLineEnd = lineEnd === -1 ? outputText.length : lineEnd;
-            
-            const lineText = outputText.substring(lineStart, actualLineEnd);
-            const colonIndex = lineText.indexOf(':');
-            
-            if (colonIndex === -1) {
-                this.highlightOverlay.innerHTML = '';
+            // 更新 backdrop 显示高亮
+            this.updateBackdrop(backdrop, text, { start, end });
+
+            // 同步当前滚动位置到 backdrop
+            const inner = backdrop.querySelector('.editor-backdrop-inner');
+            if (inner) {
+                inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+            }
+
+            // 滚动到高亮位置
+            requestAnimationFrame(() => {
+                this.scrollToPosition(textarea, backdrop, start);
+            });
+        },
+
+        // 更新 backdrop 内容，可选高亮
+        updateBackdrop(backdrop, text, highlight) {
+            if (!text) {
+                backdrop.innerHTML = '';
                 return;
             }
 
-            const keyText = lineText.substring(0, colonIndex).trim();
-            const valText = lineText.substring(colonIndex + 1).trim();
-            
-            // 边界检查：确保提取的文本非空
-            if (!keyText || !valText) {
-                this.highlightOverlay.innerHTML = '';
-                return;
+            let html = '';
+            if (highlight && highlight.start < text.length) {
+                const before = this.escapeHtml(text.substring(0, highlight.start));
+                const highlighted = this.escapeHtml(text.substring(highlight.start, Math.min(highlight.end, text.length)));
+                const after = this.escapeHtml(text.substring(Math.min(highlight.end, text.length)));
+                html = before + '<span class="highlight">' + highlighted + '</span>' + after;
+            } else {
+                html = this.escapeHtml(text);
             }
             
-            const beforeLine = this.escapeHtml(outputText.substring(0, lineStart));
-            const afterLine = this.escapeHtml(outputText.substring(actualLineEnd));
-            
-            const highlightedLine = 
-                `<span class="highlight-key">${this.escapeHtml(keyText)}</span>` +
-                `: ` +
-                `<span class="highlight-val">${this.escapeHtml(valText)}</span>`;
-
-            this.highlightOverlay.innerHTML = beforeLine + highlightedLine + afterLine;
+            // 使用 transform 来定位，避免滚动同步问题
+            backdrop.innerHTML = '<div class="editor-backdrop-inner">' + html + '</div>';
         },
 
         escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         },
 
-        centerTextareaOnPosition(textarea, pos, verticalOnly = false) {
-            if (!textarea || typeof pos !== 'number') return;
-            const value = textarea.value;
-            if (!value || pos > value.length) return;
+        // 滚动到指定位置
+        scrollToPosition(textarea, backdrop, pos) {
+            const text = textarea.value;
+            if (!text || pos > text.length) return;
 
             const style = window.getComputedStyle(textarea);
             const lineHeight = parseFloat(style.lineHeight) || 18;
             
-            const before = value.slice(0, pos);
+            // 计算行号
+            const before = text.slice(0, pos);
             const lineIndex = before.split('\n').length - 1;
+            
+            // 计算可见行数，滚动到中间
             const visibleLines = textarea.clientHeight / lineHeight;
             const targetLine = Math.max(0, lineIndex - visibleLines / 2);
-            textarea.scrollTop = targetLine * lineHeight;
+            const scrollTop = targetLine * lineHeight;
 
-            if (verticalOnly) return;
-
-            const lineStart = value.lastIndexOf('\n', pos - 1) + 1;
+            // 水平滚动
+            const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
             const column = pos - lineStart;
             const charWidth = this.getCharWidth(textarea, style);
             const halfCols = textarea.clientWidth / (charWidth * 2);
             const targetColumn = Math.max(0, column - halfCols);
-            textarea.scrollLeft = targetColumn * charWidth;
+            const scrollLeft = targetColumn * charWidth;
+            
+            // 设置 textarea 滚动位置
+            textarea.scrollTop = scrollTop;
+            textarea.scrollLeft = scrollLeft;
+            
+            // 使用 transform 同步 backdrop
+            const inner = backdrop.querySelector('.editor-backdrop-inner');
+            if (inner) {
+                inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+            }
         },
 
         getCharWidth(textarea, style) {
@@ -788,6 +846,12 @@
                 return ctx.measureText('M').width || 8;
             }
             return 8;
+        },
+
+        clearHighlight() {
+            this.currentHighlight = null;
+            this.updateBackdrop(this.inputBackdrop, this.inputEl.value, null);
+            this.updateBackdrop(this.outputBackdrop, this.outputEl.value, null);
         },
 
         scheduleProcess() {
@@ -907,6 +971,57 @@
             return parseFloat(newVal.toFixed(6)).toString();
         },
 
+        // 扫描原始文本中数值的位置
+        scanPositions(text, positionMap) {
+            const tokens = this.tokenize(text);
+            const contextStack = [];
+            const indexMap = new Map();
+            let lastKey = null;
+
+            for (let i = 0; i < tokens.length; i++) {
+                const t = tokens[i];
+                const prev = i > 0 ? tokens[i-1] : null;
+                const next = i < tokens.length - 1 ? tokens[i+1] : null;
+
+                if (t.type === 'brace_open') {
+                    contextStack.push(lastKey || 'root');
+                    lastKey = null;
+                }
+                else if (t.type === 'brace_close') {
+                    contextStack.pop();
+                    lastKey = null;
+                }
+                else if (t.type === 'bracket_open') {
+                    contextStack.push(lastKey || 'arr');
+                    lastKey = null;
+                }
+                else if (t.type === 'bracket_close') {
+                    contextStack.pop();
+                    lastKey = null;
+                }
+                else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
+                    lastKey = t.value.replace(/['"]/g, '');
+                }
+                else if (t.type === 'literal' && prev?.type === 'colon') {
+                    const val = t.value;
+                    if (/^[-]?\d*\.?\d+$/.test(val)) {
+                        const fieldKey = lastKey || 'val';
+                        const basePath = contextStack.join('.') + '.' + fieldKey;
+                        const currentIdx = indexMap.get(basePath) || 0;
+                        indexMap.set(basePath, currentIdx + 1);
+                        const fullPath = basePath + '#' + currentIdx;
+                        
+                        // 记录在原始文本中的位置
+                        positionMap.set(fullPath, { 
+                            start: t.start, 
+                            end: t.start + t.value.length 
+                        });
+                    }
+                    lastKey = null;
+                }
+            }
+        },
+
         scanGroups(text, mergeMode = false) {
             const tokens = this.tokenize(text);
             const groups = [];
@@ -921,6 +1036,8 @@
 
             for (let i = 0; i < tokens.length; i++) {
                 const t = tokens[i];
+                const prev = i > 0 ? tokens[i-1] : null;
+                const next = i < tokens.length - 1 ? tokens[i+1] : null;
                   
                 if (t.type === 'brace_open') {
                     const propName = lastKey || 'root';
@@ -949,7 +1066,7 @@
                 }
                 else if (t.type === 'bracket_open') { contextStack.push(lastKey || 'arr'); lastKey = null; }
                 else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
-                else if ((t.type === 'literal' || t.type === 'string') && tokens[i+1]?.type === 'colon') {
+                else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
                     lastKey = t.value.replace(/['"]/g, '');
                     if (lastKey === 'name' && !mergeMode) {
                         if (tokens[i+2] && (tokens[i+2].type === 'string' || tokens[i+2].type === 'literal')) {
@@ -958,7 +1075,7 @@
                         }
                     }
                 }
-                else if (t.type === 'literal' && tokens[i-1]?.type === 'colon') {
+                else if (t.type === 'literal' && prev?.type === 'colon') {
                     const val = t.value;
                     if (/^[-]?\d*\.?\d+$/.test(val)) {
                         const fieldKey = lastKey || 'val';
@@ -978,7 +1095,7 @@
                                 currentGroup.fields.push({ key: fieldKey, val: val });
                             }
                         } else {
-                            const basePath = contextStack.join('.') + (lastKey ? '.' + lastKey : '');
+                            const basePath = contextStack.join('.') + '.' + fieldKey;
                             const currentIdx = indexMap.get(basePath) || 0;
                             indexMap.set(basePath, currentIdx + 1);
                             const fullPath = basePath + '#' + currentIdx;
@@ -1007,7 +1124,7 @@
             }
         },
 
-        process(text, options, valuePositions) {
+        process(text, options, outputPositions) {
             const tokens = this.tokenize(text);
             let output = '';
             let indentLevel = 0;
@@ -1051,7 +1168,6 @@
             const contextStack = [];
             let lastKey = null;
             const indexMap = new Map();
-            let outputPos = 0;
 
             for (let i = 0; i < tokens.length; i++) {
                 const t = tokens[i];
@@ -1067,188 +1183,196 @@
                 else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
                 else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') lastKey = t.value.replace(/['"]/g, '');
 
-                // 数值处理
-                if (options.adjustments && t.type === 'literal' && prev?.type === 'colon') {
-                     let match = false;
-                     let formula = null;
-                     let fullPath = '';
+                // 数值处理和位置记录
+                if (t.type === 'literal' && prev?.type === 'colon' && /^[-]?\d*\.?\d+$/.test(t.value)) {
+                    const fieldKey = lastKey || 'val';
+                    const basePath = contextStack.join('.') + '.' + fieldKey;
+                    const currentIdx = indexMap.get(basePath) || 0;
+                    indexMap.set(basePath, currentIdx + 1);
+                    const fullPath = basePath + '#' + currentIdx;
 
-                     if (options.mergeMode) {
-                         const parentKey = contextStack[contextStack.length - 1] || 'root';
-                         const currentKey = lastKey || 'val';
-                         const wildcardKey = `$${parentKey}.$${currentKey}`;
-                          
-                         if (options.adjustments.has(wildcardKey)) {
-                             formula = options.adjustments.get(wildcardKey);
-                             match = true;
-                         }
-                     } else {
-                         const basePath = contextStack.join('.') + (lastKey ? '.' + lastKey : '');
-                         const currentIdx = indexMap.get(basePath) || 0;
-                         indexMap.set(basePath, currentIdx + 1);
-                         fullPath = basePath + '#' + currentIdx;
+                    let finalValue = t.value;
+                    
+                    // 应用数值调整
+                    if (options.adjustments) {
+                        let formula = null;
+                        if (options.mergeMode) {
+                            const parentKey = contextStack[contextStack.length - 1] || 'root';
+                            const wildcardKey = `$${parentKey}.$${fieldKey}`;
+                            if (options.adjustments.has(wildcardKey)) {
+                                formula = options.adjustments.get(wildcardKey);
+                            }
+                        } else {
+                            if (options.adjustments.has(fullPath)) {
+                                formula = options.adjustments.get(fullPath);
+                            }
+                        }
+                        if (formula) {
+                            finalValue = this.applyMath(t.value, formula);
+                        }
+                    }
 
-                         if (options.adjustments.has(fullPath)) {
-                             formula = options.adjustments.get(fullPath);
-                             match = true;
-                         }
-                     }
-
-                     if (match && formula) {
-                         const oldValue = t.value;
-                         t.value = this.applyMath(t.value, formula);
-                         if (fullPath && valuePositions && !options.mergeMode) {
-                             valuePositions.set(fullPath, { start: outputPos, end: outputPos + oldValue.length });
-                         }
-                     }
-                     lastKey = null;
+                    // 记录输出位置（在写入之前）
+                    const outputStart = output.length;
+                    output += finalValue;
+                    const outputEnd = output.length;
+                    
+                    if (outputPositions) {
+                        outputPositions.set(fullPath, { start: outputStart, end: outputEnd });
+                    }
+                    
+                    lastKey = null;
+                    continue;
                 }
 
-                // 修复注释换行问题：行注释保留在行尾，不换行
+                // 注释处理
                 if (t.type === 'comment') {
                     if (!options.keepComments) continue;
                     
-                    // 记录注释位置
-                    const commentStartPos = outputPos;
-                    
                     if (t.kind === 'line') {
-                        // 检查是否是行尾注释（前面有代码）
-                        const beforeComment = output.trimEnd();
-                        const isEOLComment = beforeComment.length > 0 && !beforeComment.endsWith('\n');
+                        const sourceText = options.sourceText || text;
+                        let beforeCommentInSource = sourceText.substring(0, t.start);
+                        const lastNewlinePos = beforeCommentInSource.lastIndexOf('\n');
+                        const lineBeforeComment = lastNewlinePos >= 0 
+                            ? beforeCommentInSource.substring(lastNewlinePos + 1) 
+                            : beforeCommentInSource;
+                        
+                        const isEOLComment = lineBeforeComment.trim().length > 0;
                         
                         if (isEOLComment) {
-                            // 行尾注释：保留在行尾，不添加换行
                             output += ' ' + t.value;
-                            outputPos += 1 + t.value.length; // +1 是空格
+                            if (options.mode !== 'minify' && !inInlineBlock) {
+                                output += '\n' + getIndent();
+                            }
                         } else {
-                            // 独立注释或行首注释
                             if (options.mode === 'minify') {
                                 output += t.value;
-                                outputPos += t.value.length;
                             } else {
                                 output = output.trimEnd() + '\n' + getIndent() + t.value + '\n' + getIndent();
-                                outputPos += 2 + t.value.length + getIndent().length; // 2个换行符 + 注释 + 缩进
                             }
                         }
                     } else {
-                        // 块注释
                         output += t.value;
-                        outputPos += t.value.length;
                     }
                     continue;
                 }
 
-                // 记录普通数值位置
-                if (t.type === 'literal' && /^[-]?\d*\.?\d+$/.test(t.value) && prev?.type === 'colon' && valuePositions && !options.adjustments) {
-                    const basePath = contextStack.join('.') + (lastKey ? '.' + lastKey : '');
-                    const currentIdx = indexMap.get(basePath) || 0;
-                    indexMap.set(basePath, currentIdx + 1);
-                    const fullPath = basePath + '#' + currentIdx;
-                    valuePositions.set(fullPath, { start: outputPos, end: outputPos + t.value.length });
-                }
+                // 检查下一个非空token是否是行尾注释
+                const hasTrailingComment = (idx) => {
+                    const nextToken = tokens[idx + 1];
+                    if (nextToken && nextToken.type === 'comment' && nextToken.kind === 'line') {
+                        const sourceText = options.sourceText || text;
+                        const beforeComment = sourceText.substring(0, nextToken.start);
+                        const lastNewline = beforeComment.lastIndexOf('\n');
+                        const lineContent = lastNewline >= 0 ? beforeComment.substring(lastNewline + 1) : beforeComment;
+                        return lineContent.trim().length > 0;
+                    }
+                    return false;
+                };
 
-                // 写入output并精确更新outputPos
-                const tokenStart = outputPos;
+                // 写入output
                 if (t.type === 'brace_open') {
-                    if (vectorMap.get(i)) { inInlineBlock = true; output += '{ '; outputPos += 2; }
+                    if (vectorMap.get(i)) { inInlineBlock = true; output += '{ '; }
                     else {
-                        if (options.mode === 'minify') { output += '{'; outputPos += 1; }
+                        if (options.mode === 'minify') { output += '{'; }
                         else { 
-                            const newLine = inInlineBlock ? '{' : '{\n';
-                            output += newLine; 
-                            outputPos += newLine.length;
-                            if (!inInlineBlock) { 
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (trailingComment) {
+                                output += '{';
+                                indentLevel++;
+                            } else {
+                                output += '{\n';
                                 indentLevel++; 
-                                const indentStr = getIndent();
-                                output += indentStr; 
-                                outputPos += indentStr.length;
-                            } 
+                                output += getIndent();
+                            }
                         }
                     }
                 }
                 else if (t.type === 'brace_close') {
                     if (inInlineBlock && vectorMap.get(findMatchingOpenIndex(tokens, i, 'brace'))) { 
-                        output += ' }'; 
-                        outputPos += 2;
+                        output += ' }';
                         inInlineBlock = false; 
                     }
                     else {
-                        if (options.mode === 'minify') { output += '}'; outputPos += 1; }
+                        if (options.mode === 'minify') { output += '}'; }
                         else { 
                             indentLevel--; 
                             output = output.trimEnd(); 
-                            const newLine = '\n' + getIndent() + '}';
-                            output += newLine; 
-                            outputPos += newLine.length;
+                            output += '\n' + getIndent() + '}';
                         }
                     }
                 }
                 else if (t.type === 'bracket_open') {
-                    if (inlineArrayMap.get(i)) { inInlineBlock = true; output += '['; outputPos += 1; }
+                    if (inlineArrayMap.get(i)) { inInlineBlock = true; output += '['; }
                     else {
-                        if (options.mode === 'minify') { output += '['; outputPos += 1; }
+                        if (options.mode === 'minify') { output += '['; }
                         else { 
-                            output += '[\n'; 
-                            outputPos += 2;
-                            indentLevel++; 
-                            const indentStr = getIndent();
-                            output += indentStr; 
-                            outputPos += indentStr.length;
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (trailingComment) {
+                                output += '[';
+                                indentLevel++;
+                            } else {
+                                output += '[\n';
+                                indentLevel++; 
+                                output += getIndent();
+                            }
                         }
                     }
                 }
                 else if (t.type === 'bracket_close') {
                     const openIdx = findMatchingOpenIndex(tokens, i, 'bracket');
                     if (inlineArrayMap.get(openIdx)) { 
-                        output += ']'; 
-                        outputPos += 1;
+                        output += ']';
                         inInlineBlock = false; 
                     }
                     else {
-                        if (options.mode === 'minify') { output += ']'; outputPos += 1; }
+                        if (options.mode === 'minify') { output += ']'; }
                         else { 
                             indentLevel--; 
                             output = output.trimEnd(); 
-                            const newLine = '\n' + getIndent() + ']';
-                            output += newLine; 
-                            outputPos += newLine.length;
+                            output += '\n' + getIndent() + ']';
                         }
                     }
                 }
                 else if (t.type === 'comma') {
                     output += ',';
-                    outputPos += 1;
                     if (options.mode !== 'minify') {
-                        if (inInlineBlock) { output += ' '; outputPos += 1; }
+                        if (inInlineBlock) { output += ' '; }
                         else { 
-                            const newLine = '\n' + getIndent();
-                            output += newLine; 
-                            outputPos += newLine.length;
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (!trailingComment) {
+                                output += '\n' + getIndent();
+                            }
                         }
                     }
                 }
                 else if (t.type === 'colon') { 
-                    const sep = options.mode !== 'minify' ? ': ' : ':';
-                    output += sep; 
-                    outputPos += sep.length;
+                    output += options.mode !== 'minify' ? ': ' : ':';
                 }
-                else { 
-                    output += t.value; 
-                    outputPos += t.value.length;
+                else if (t.type !== 'literal' || prev?.type !== 'colon') {
+                    // 非数值的 literal 或其他 token
+                    output += t.value;
                 }
             }
 
             let final = output.trim();
             if (options.mode === 'format' && options.alignBraces) {
-                final = this.alignBrackets(final);
+                final = this.alignBrackets(final, outputPositions);
             }
             return final;
         },
 
-        alignBrackets(jsonStr) {
+        alignBrackets(jsonStr, outputPositions) {
             const lines = jsonStr.split('\n');
             const resultLines = [];
             let i = 0;
+            
+            // 需要重新计算位置偏移
+            let charOffset = 0;
+            const lineStartOffsets = [0];
+            for (let li = 0; li < lines.length; li++) {
+                lineStartOffsets.push(lineStartOffsets[li] + lines[li].length + 1);
+            }
               
             while (i < lines.length) {
                 let j = i;
@@ -1301,7 +1425,6 @@
                     let line = lines[k];
                       
                     if (shouldAlignBlock && maxColonPos > 0) {
-                        const trimmed = line.trim();
                         const hasColon = line.includes(':');
                           
                         if (hasColon) {
@@ -1321,6 +1444,49 @@
                 }
 
                 i = j;
+            }
+
+            // 对齐后需要重新计算 outputPositions
+            if (outputPositions && outputPositions.size > 0) {
+                const newText = resultLines.join('\n');
+                const newPositions = new Map();
+                
+                // 重新扫描对齐后文本的位置
+                const tokens = this.tokenize(newText);
+                const contextStack = [];
+                const indexMap = new Map();
+                let lastKey = null;
+
+                for (let ti = 0; ti < tokens.length; ti++) {
+                    const t = tokens[ti];
+                    const prev = ti > 0 ? tokens[ti-1] : null;
+                    const next = ti < tokens.length - 1 ? tokens[ti+1] : null;
+
+                    if (t.type === 'brace_open') {
+                        contextStack.push(lastKey || 'root');
+                        lastKey = null;
+                    }
+                    else if (t.type === 'brace_close') contextStack.pop();
+                    else if (t.type === 'bracket_open') { contextStack.push(lastKey || 'arr'); lastKey = null; }
+                    else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
+                    else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
+                        lastKey = t.value.replace(/['"]/g, '');
+                    }
+                    else if (t.type === 'literal' && prev?.type === 'colon' && /^[-]?\d*\.?\d+$/.test(t.value)) {
+                        const fieldKey = lastKey || 'val';
+                        const basePath = contextStack.join('.') + '.' + fieldKey;
+                        const currentIdx = indexMap.get(basePath) || 0;
+                        indexMap.set(basePath, currentIdx + 1);
+                        const fullPath = basePath + '#' + currentIdx;
+                        
+                        newPositions.set(fullPath, { start: t.start, end: t.start + t.value.length });
+                        lastKey = null;
+                    }
+                }
+
+                // 更新原 outputPositions
+                outputPositions.clear();
+                newPositions.forEach((val, key) => outputPositions.set(key, val));
             }
 
             return resultLines.join('\n');
