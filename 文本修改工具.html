@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本修改工具</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #252526;
+            --border-color: #3e3e42;
+            --accent-color: #007acc;
+            --text-color: #d4d4d4;
+            --keyword-color: #569cd6;
+            --string-color: #ce9178;
+            --number-color: #b5cea8;
+            --comment-color: #6a9955;
+            --key-color: #9cdcfe;
+            --highlight-color: #ffff00;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 0 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 45px;
+            flex-shrink: 0;
+        }
+
+        h1 { margin: 0; font-size: 16px; color: var(--keyword-color); font-weight: normal; }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 70px);
+            overflow: hidden;
+        }
+
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            min-width: 0;
+            position: relative;
+        }
+
+        .panel-header {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #ccc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* 编辑器容器 - 用于高亮显示 */
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .editor-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #1e1e1e;
+            color: transparent;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre;
+            overflow: hidden;
+            tab-size: 4;
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+        
+        .editor-backdrop-inner {
+            position: relative;
+            min-height: 100%;
+        }
+
+        .editor-backdrop .highlight {
+            background-color: rgba(255, 255, 0, 0.4);
+            color: transparent;
+            border-radius: 2px;
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+            white-space: pre;
+            overflow: auto;
+            tab-size: 4;
+            position: relative;
+            z-index: 1;
+            box-sizing: border-box;
+        }
+
+        textarea:focus { border-color: var(--accent-color); }
+
+        /* 保持原始controls宽度 */
+        .controls {
+            width: 420px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .controls-scroll-area {
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .control-group {
+            padding: 10px 0;
+            border-bottom: 1px solid #3e3e42;
+        }
+
+        .group-title {
+            font-size: 11px;
+            color: #858585;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 12px;
+            transition: opacity 0.2s;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: #3e3e42; }
+        button.link-btn { background: none; color: #ce9178; width: auto; padding: 0; margin: 0; text-decoration: underline; }
+
+        label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 0;
+            cursor: pointer;
+            font-size: 12px;
+            user-select: none;
+        }
+
+        label.disabled { opacity: 0.5; cursor: not-allowed; }
+        label.locked { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        label.locked input { pointer-events: none; }
+
+        input[type="checkbox"] { accent-color: var(--accent-color); }
+
+        input[type="text"] {
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--number-color);
+            padding: 2px 5px;
+            border-radius: 2px;
+            font-family: inherit;
+            font-size: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input[type="text"]::placeholder { color: #555; }
+        input:focus { border-color: var(--accent-color); outline: none; }
+
+        .batch-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .batch-object-group {
+            border-bottom: 1px solid #3e3e42;
+            padding-bottom: 8px;
+        }
+          
+        .batch-object-title {
+            font-size: 12px;
+            color: var(--key-color);
+            font-weight: bold;
+            margin-bottom: 6px;
+            display: block;
+            word-wrap: break-word;
+            word-break: break-all;
+            white-space: normal;
+        }
+          
+        .batch-object-count {
+            font-size: 10px;
+            color: #666;
+            font-weight: normal;
+            margin-left: 5px;
+        }
+
+        .batch-fields-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+        }
+
+        .batch-field-item {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: #1e1e1e;
+            padding: 2px 4px;
+            border-radius: 2px;
+            border: 1px solid #333;
+            min-width: 0;
+        }
+        .batch-field-item.span-1 { grid-column: span 1; }
+        .batch-field-item.span-2 { grid-column: span 2; }
+        .batch-field-item.span-4 { grid-column: span 4; }
+
+        .batch-key-label {
+            color: var(--string-color);
+            font-size: 11px;
+            flex-shrink: 0;
+        }
+
+        .batch-input {
+            flex: 1;
+            width: 100% !important;
+            border: none !important;
+            border-bottom: 1px solid #444 !important;
+            background: transparent !important;
+            text-align: center;
+            padding: 0 !important;
+            min-width: 20px;
+        }
+        .batch-input:focus { border-bottom-color: var(--accent-color) !important; }
+
+        .status-bar {
+            height: 25px;
+            background: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 12px;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+        .style-inline-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+        }
+        .style-inline-row label {
+            min-width: auto;
+        }
+        .format-inline-opts {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+        }
+        #lbl-keep-comments input:disabled + span,
+        #lbl-keep-comments input:disabled {
+            opacity: 0.8;
+        }
+        #lbl-keep-comments {
+            color: var(--text-color);
+        }
+
+        .batch-title-row {
+            align-items: center;
+        }
+        .batch-title-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+        .merge-inline-label {
+            font-weight: normal;
+        }
+        .batch-icon-btn {
+            padding: 3px 10px;
+            border-radius: 3px;
+            background-color: #3e3e42;
+            color: #d4d4d4;
+            cursor: pointer;
+            user-select: none;
+        }
+        .batch-icon-btn:hover {
+            background-color: #4b4b50;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>文本修改工具v0.1</h1>
+</header>
+
+<div class="main-container">
+    <!-- 左侧输入 -->
+    <div class="editor-panel">
+        <div class="panel-header">
+            <span>INPUT (源数据)</span>
+            <button onclick="app.clearInput()" class="link-btn">清空</button>
+        </div>
+        <div class="editor-container">
+            <div id="input-backdrop" class="editor-backdrop"></div>
+            <textarea id="input-area" placeholder="// 在此粘贴文本..." spellcheck="false"></textarea>
+        </div>
+    </div>
+
+    <!-- 中间控制 -->
+    <div class="controls">
+        <div class="controls-scroll-area">
+              
+            <div class="control-group">
+                <div class="group-title">样式选项 (Style)</div>
+                  
+                <div class="style-inline-row">
+                    <label title="压缩为一行，去除空格">
+                        <input type="checkbox" id="opt-minify" onchange="app.onModeChange()"> 
+                        压缩
+                    </label>
+
+                    <label id="lbl-keep-comments" title="保留 // 和 /* */ 注释">
+                        <input type="checkbox" id="opt-keep-comments" checked onchange="app.process()"> 
+                        注释
+                    </label>
+                  
+                    <div id="format-opts" class="format-inline-opts">
+                        <label title="如果不含冒号(:)，则 [] 保持在一行">
+                            <input type="checkbox" id="opt-simple-arrays" checked onchange="app.process()"> 
+                            数组
+                        </label>
+
+                        <label title="将 {x,y} 等短对象保持在一行">
+                            <input type="checkbox" id="opt-single-line-vectors" checked onchange="app.process()"> 
+                            向量
+                        </label>
+                          
+                        <input type="hidden" id="opt-vector-keys" value="x,y,z,w,r,g,b,a,scale,width,height,anchor,rect">
+
+                        <label title="在同一缩进层级下，对齐向量对象的花括号">
+                            <input type="checkbox" id="opt-indent-align" checked onchange="app.process()"> 
+                            花括号
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group" style="flex: 1; display: flex; flex-direction: column; min-height: 200px;">
+                <div class="group-title batch-title-row">
+                    <span>数值批量计算 (Batch Calc)</span>
+                    <div class="batch-title-actions">
+                        <label class="merge-inline-label" title="忽略父对象名称差异，将 colorAdjustment 等合并显示，修改将应用到全部">
+                            <input type="checkbox" id="opt-merge-batch" checked onchange="app.scanVariables()"> 
+                            合并同类项
+                        </label>
+                        <span class="batch-icon-btn" title="重新扫描可编辑字段" onclick="app.scanVariables()">↻ 刷新</span>
+                        <span class="batch-icon-btn" title="应用计算到输出" onclick="app.applyBatch()">⏎ 应用</span>
+                    </div>
+                </div>
+                  
+                <div id="batch-container" class="batch-container" style="flex:1; overflow-y:auto; padding-right:5px; border-top:1px solid #3e3e42; margin-top:8px;">
+                    <div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">
+                        使用右上角"刷新"按钮加载可编辑字段
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧输出 -->
+    <div class="editor-panel">
+        <div class="panel-header">
+            <span>OUTPUT (处理结果)</span>
+            <button onclick="app.copyOutput()" class="link-btn">复制结果</button>
+        </div>
+        <div class="editor-container">
+            <div id="output-backdrop" class="editor-backdrop"></div>
+            <textarea id="output-area" readonly placeholder="..."></textarea>
+        </div>
+    </div>
+</div>
+
+<div class="status-bar" id="status-bar">Ready</div>
+
+<script>
+    const app = {
+        batchMap: [],
+        inputPositions: new Map(),  // input区的位置映射: fullPath -> {start, end}
+        outputPositions: new Map(), // output区的位置映射: fullPath -> {start, end}
+        currentHighlight: null,     // 当前高亮的字段信息
+
+        init() {
+            this.inputEl = document.getElementById('input-area');
+            this.outputEl = document.getElementById('output-area');
+            this.inputBackdrop = document.getElementById('input-backdrop');
+            this.outputBackdrop = document.getElementById('output-backdrop');
+            this.batchContainer = document.getElementById('batch-container');
+              
+            this.inputEl.addEventListener('input', () => {
+                this.scheduleProcess();
+                this.scheduleAutoScan();
+                this.clearHighlight();
+            });
+
+            // 同步滚动: 使用 transform 移动 backdrop 内容，完全同步
+            const syncScroll = (textarea, backdrop) => {
+                const updateTransform = () => {
+                    const inner = backdrop.querySelector('.editor-backdrop-inner');
+                    if (inner) {
+                        inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+                    }
+                };
+                textarea.addEventListener('scroll', updateTransform);
+                // 初始同步
+                updateTransform();
+            };
+            syncScroll(this.inputEl, this.inputBackdrop);
+            syncScroll(this.outputEl, this.outputBackdrop);
+
+            const keepComments = document.getElementById('opt-keep-comments');
+            keepComments.addEventListener('click', (e) => {
+                if (keepComments.dataset.locked === 'true') {
+                    e.preventDefault();
+                }
+            });
+            keepComments.addEventListener('keydown', (e) => {
+                if (keepComments.dataset.locked === 'true' && (e.key === ' ' || e.key === 'Enter')) {
+                    e.preventDefault();
+                }
+            });
+
+            this.onModeChange();
+        },
+
+        showStatus(msg, type = 'info') {
+            const bar = document.getElementById('status-bar');
+            bar.textContent = msg;
+            bar.style.backgroundColor = type === 'error' ? '#c72e0f' : (type === 'success' ? '#388e3c' : '#007acc');
+            setTimeout(() => {
+                if(type !== 'error') {
+                    bar.style.backgroundColor = '#007acc';
+                    bar.textContent = 'Ready';
+                }
+            }, 3000);
+        },
+
+        clearInput() {
+            this.inputEl.value = '';
+            this.outputEl.value = '';
+            this.inputBackdrop.innerHTML = '';
+            this.outputBackdrop.innerHTML = '';
+            this.batchContainer.innerHTML = '<div style="text-align: center; padding: 20px; color: #666; font-size: 12px;">清空完成</div>';
+            this.batchMap = [];
+            this.inputPositions.clear();
+            this.outputPositions.clear();
+            this.currentHighlight = null;
+        },
+
+        copyOutput() {
+            this.outputEl.select();
+            document.execCommand('copy');
+            this.showStatus('已复制到剪贴板', 'success');
+        },
+
+        onModeChange() {
+            const isMinify = document.getElementById('opt-minify').checked;
+            const formatOpts = document.getElementById('format-opts');
+
+            if (isMinify) {
+                this.lockComments(true);
+                formatOpts.style.opacity = '0.5';
+                formatOpts.style.pointerEvents = 'none';
+            } else {
+                this.lockComments(false);
+                formatOpts.style.opacity = '1';
+                formatOpts.style.pointerEvents = 'auto';
+            }
+            this.process();
+        },
+
+        // 核心处理函数 - 只处理 input -> output，不修改 input
+        process() {
+            const rawText = this.inputEl.value;
+            if (!rawText.trim()) {
+                this.outputEl.value = '';
+                return;
+            }
+
+            const isMinify = document.getElementById('opt-minify').checked;
+              
+            const opts = {
+                mode: isMinify ? 'minify' : 'format', 
+                keepComments: isMinify ? false : document.getElementById('opt-keep-comments').checked,
+                singleLineVectors: document.getElementById('opt-single-line-vectors').checked,
+                simpleArrays: document.getElementById('opt-simple-arrays').checked,
+                alignBraces: document.getElementById('opt-indent-align').checked,
+                vectorKeys: document.getElementById('opt-vector-keys').value.split(',').map(k => k.trim()),
+                indent: 4,
+                adjustments: null,
+                sourceText: rawText
+            };
+
+            try {
+                this.inputPositions.clear();
+                this.outputPositions.clear();
+                
+                // 扫描 input 的位置
+                Formatter.scanPositions(rawText, this.inputPositions);
+                
+                // 格式化并记录 output 的位置
+                const result = Formatter.process(rawText, opts, this.outputPositions);
+                this.outputEl.value = result;
+                
+                // 更新 backdrop
+                this.updateBackdrop(this.inputBackdrop, rawText, null);
+                this.updateBackdrop(this.outputBackdrop, result, null);
+                
+                document.getElementById('status-bar').textContent = 'Processed';
+            } catch (e) {
+                console.warn(e);
+            }
+        },
+
+        scanVariables() {
+            const text = this.inputEl.value;
+            if(!text.trim()) return;
+            try {
+                const mergeMode = document.getElementById('opt-merge-batch').checked;
+                this.batchMap = Formatter.scanGroups(text, mergeMode);
+                this.renderBatchUI(mergeMode);
+                this.showStatus(`扫描完成: ${this.batchMap.length} 组`, 'success');
+            } catch (e) {
+                this.showStatus("扫描失败: " + e.message, 'error');
+            }
+        },
+
+        renderBatchUI(mergeMode) {
+            this.batchContainer.innerHTML = '';
+            if (this.batchMap.length === 0) {
+                this.batchContainer.innerHTML = '<div style="padding:10px;text-align:center;color:#888">未找到数值属性</div>';
+                return;
+            }
+
+            this.batchMap.forEach((group, groupIndex) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'batch-object-group';
+
+                const title = document.createElement('span');
+                title.className = 'batch-object-title';
+                  
+                if (mergeMode) {
+                    const displayName = group.name.startsWith('$') ? group.name.slice(1) : group.name;
+                    title.textContent = `* . ${displayName}`;
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'batch-object-count';
+                    countSpan.textContent = ` (${group.count}个实例)`;
+                    title.appendChild(countSpan);
+                } else {
+                    title.textContent = group.name;
+                }
+                groupDiv.appendChild(title);
+
+                const grid = document.createElement('div');
+                grid.className = 'batch-fields-grid';
+
+                group.fields.forEach((field, fieldIndex) => {
+                    const item = document.createElement('div');
+                    const spanClass = this.getFieldSpanClass(field.key);
+                    item.className = `batch-field-item ${spanClass}`;
+                      
+                    const label = document.createElement('span');
+                    label.className = 'batch-key-label';
+                    label.textContent = field.key;
+                      
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.className = 'batch-input';
+                    input.placeholder = mergeMode ? `(mix)` : field.val;
+                    input.dataset.group = groupIndex;
+                    input.dataset.field = fieldIndex;
+                    
+                    // 点击和聚焦时定位并高亮
+                    const handleFocus = () => {
+                        if (!mergeMode) {
+                            this.focusField(parseInt(input.dataset.group, 10), parseInt(input.dataset.field, 10));
+                        }
+                    };
+                    input.addEventListener('focus', handleFocus);
+                    input.addEventListener('click', handleFocus);
+                    
+                    input.addEventListener('keydown', (evt) => {
+                        if (evt.key === 'Enter') {
+                            evt.preventDefault();
+                            this.applyBatch();
+                        }
+                    });
+
+                    item.appendChild(label);
+                    item.appendChild(input);
+                    grid.appendChild(item);
+                });
+
+                groupDiv.appendChild(grid);
+                this.batchContainer.appendChild(groupDiv);
+            });
+        },
+
+        // 应用批量计算 - 只影响 output，不修改 input
+        applyBatch() {
+            const inputs = document.querySelectorAll('.batch-input');
+            const adjustments = new Map();
+            const mergeMode = document.getElementById('opt-merge-batch').checked;
+              
+            let hasInput = false;
+            inputs.forEach(input => {
+                const val = input.value.trim();
+                if (val) {
+                    hasInput = true;
+                    const gIdx = input.dataset.group;
+                    const fIdx = input.dataset.field;
+                    const group = this.batchMap[gIdx];
+                    const field = group.fields[fIdx];
+                      
+                    if (mergeMode) {
+                        adjustments.set(`$${group.name}.$${field.key}`, val);
+                    } else {
+                        adjustments.set(field.fullPath, val);
+                    }
+                }
+            });
+
+            if (!hasInput) {
+                this.showStatus('未输入任何值', 'info');
+                return;
+            }
+
+            // 从原始 input 重新处理，应用调整，只更新 output
+            const rawText = this.inputEl.value;
+            const isMinify = document.getElementById('opt-minify').checked;
+              
+            const opts = {
+                mode: isMinify ? 'minify' : 'format',
+                keepComments: isMinify ? false : document.getElementById('opt-keep-comments').checked,
+                singleLineVectors: document.getElementById('opt-single-line-vectors').checked,
+                simpleArrays: document.getElementById('opt-simple-arrays').checked,
+                alignBraces: document.getElementById('opt-indent-align').checked,
+                vectorKeys: document.getElementById('opt-vector-keys').value.split(',').map(k=>k.trim()),
+                indent: 4,
+                adjustments: adjustments,
+                mergeMode: mergeMode,
+                sourceText: rawText
+            };
+
+            try {
+                this.outputPositions.clear();
+                const result = Formatter.process(rawText, opts, this.outputPositions);
+                
+                // 只更新 output，不修改 input
+                this.outputEl.value = result;
+                this.updateBackdrop(this.outputBackdrop, result, null);
+                
+                this.showStatus(`数值计算已应用到输出`, 'success');
+            } catch(e) {
+                this.showStatus("应用失败: " + e.message, 'error');
+            }
+        },
+
+        getFieldSpanClass(key) {
+            const len = key.length;
+            if (len >= 18) return 'span-4';
+            if (len >= 11) return 'span-2';
+            return 'span-1';
+        },
+
+        // 定位并高亮字段
+        focusField(groupIndex, fieldIndex) {
+            const field = this.batchMap[groupIndex]?.fields[fieldIndex];
+            if (!field || !field.fullPath) return;
+
+            this.currentHighlight = field.fullPath;
+
+            // 定位和高亮 input
+            const inputPos = this.inputPositions.get(field.fullPath);
+            if (inputPos) {
+                this.highlightAndScroll(this.inputEl, this.inputBackdrop, inputPos.start, inputPos.end);
+            }
+
+            // 定位和高亮 output
+            const outputPos = this.outputPositions.get(field.fullPath);
+            if (outputPos) {
+                this.highlightAndScroll(this.outputEl, this.outputBackdrop, outputPos.start, outputPos.end);
+            }
+        },
+
+        // 高亮并滚动到指定位置
+        highlightAndScroll(textarea, backdrop, start, end) {
+            const text = textarea.value;
+            if (!text || start >= text.length) return;
+
+            // 更新 backdrop 显示高亮
+            this.updateBackdrop(backdrop, text, { start, end });
+
+            // 同步当前滚动位置到 backdrop
+            const inner = backdrop.querySelector('.editor-backdrop-inner');
+            if (inner) {
+                inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+            }
+
+            // 滚动到高亮位置
+            requestAnimationFrame(() => {
+                this.scrollToPosition(textarea, backdrop, start);
+            });
+        },
+
+        // 更新 backdrop 内容，可选高亮
+        updateBackdrop(backdrop, text, highlight) {
+            if (!text) {
+                backdrop.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            if (highlight && highlight.start < text.length) {
+                const before = this.escapeHtml(text.substring(0, highlight.start));
+                const highlighted = this.escapeHtml(text.substring(highlight.start, Math.min(highlight.end, text.length)));
+                const after = this.escapeHtml(text.substring(Math.min(highlight.end, text.length)));
+                html = before + '<span class="highlight">' + highlighted + '</span>' + after;
+            } else {
+                html = this.escapeHtml(text);
+            }
+            
+            // 使用 transform 来定位，避免滚动同步问题
+            backdrop.innerHTML = '<div class="editor-backdrop-inner">' + html + '</div>';
+        },
+
+        escapeHtml(text) {
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        },
+
+        // 滚动到指定位置
+        scrollToPosition(textarea, backdrop, pos) {
+            const text = textarea.value;
+            if (!text || pos > text.length) return;
+
+            const style = window.getComputedStyle(textarea);
+            const lineHeight = parseFloat(style.lineHeight) || 18;
+            
+            // 计算行号
+            const before = text.slice(0, pos);
+            const lineIndex = before.split('\n').length - 1;
+            
+            // 计算可见行数，滚动到中间
+            const visibleLines = textarea.clientHeight / lineHeight;
+            const targetLine = Math.max(0, lineIndex - visibleLines / 2);
+            const scrollTop = targetLine * lineHeight;
+
+            // 水平滚动
+            const lineStart = text.lastIndexOf('\n', pos - 1) + 1;
+            const column = pos - lineStart;
+            const charWidth = this.getCharWidth(textarea, style);
+            const halfCols = textarea.clientWidth / (charWidth * 2);
+            const targetColumn = Math.max(0, column - halfCols);
+            const scrollLeft = targetColumn * charWidth;
+            
+            // 设置 textarea 滚动位置
+            textarea.scrollTop = scrollTop;
+            textarea.scrollLeft = scrollLeft;
+            
+            // 使用 transform 同步 backdrop
+            const inner = backdrop.querySelector('.editor-backdrop-inner');
+            if (inner) {
+                inner.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
+            }
+        },
+
+        getCharWidth(textarea, style) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.font = `${style.fontSize || '13px'} ${style.fontFamily || 'monospace'}`;
+                return ctx.measureText('M').width || 8;
+            }
+            return 8;
+        },
+
+        clearHighlight() {
+            this.currentHighlight = null;
+            this.updateBackdrop(this.inputBackdrop, this.inputEl.value, null);
+            this.updateBackdrop(this.outputBackdrop, this.outputEl.value, null);
+        },
+
+        scheduleProcess() {
+            if(this._debounceProcess) clearTimeout(this._debounceProcess);
+            this._debounceProcess = setTimeout(() => this.process(), 600);
+        },
+
+        scheduleAutoScan() {
+            if(this._debounceScan) clearTimeout(this._debounceScan);
+            this._debounceScan = setTimeout(() => {
+                if(this.inputEl.value.trim()) {
+                    this.scanVariables();
+                }
+            }, 1200);
+        },
+
+        lockComments(lock) {
+            const commentCheck = document.getElementById('opt-keep-comments');
+            const commentLbl = document.getElementById('lbl-keep-comments');
+            if (lock) {
+                commentLbl.classList.add('locked');
+                commentCheck.dataset.locked = 'true';
+            } else {
+                commentLbl.classList.remove('locked');
+                delete commentCheck.dataset.locked;
+            }
+        }
+    };
+
+    const Formatter = {
+        tokenize(text) {
+            const tokens = [];
+            let i = 0;
+            const len = text.length;
+            const isWhitespace = (ch) => /\s/.test(ch);
+
+            while (i < len) {
+                const char = text[i];
+                if (isWhitespace(char)) { i++; continue; }
+
+                if (char === '"' || char === "'") {
+                    const start = i;
+                    let val = char; const quote = char; i++;
+                    while (i < len) {
+                        if (text[i] === '\\') { val += text[i] + (text[i+1] || ''); i += 2; continue; }
+                        val += text[i];
+                        if (text[i] === quote) { i++; break; }
+                        i++;
+                    }
+                    tokens.push({ type: 'string', value: val, start });
+                    continue;
+                }
+
+                if (char === '/') {
+                    if (text[i+1] === '/') {
+                        const start = i;
+                        let val = '//'; i += 2;
+                        while (i < len && text[i] !== '\n' && text[i] !== '\r') { val += text[i]; i++; }
+                        tokens.push({ type: 'comment', value: val, kind: 'line', start }); continue;
+                    } else if (text[i+1] === '*') {
+                        const start = i;
+                        let val = '/*'; i += 2;
+                        while (i < len) {
+                            val += text[i];
+                            if (text[i] === '*' && text[i+1] === '/') { val += '/'; i += 2; break; }
+                            i++;
+                        }
+                        tokens.push({ type: 'comment', value: val, kind: 'block', start }); continue;
+                    }
+                }
+
+                if ("{}[]:, ".includes(char)) {
+                    const start = i;
+                    let type = null;
+                    if (char === '{') type = 'brace_open';
+                    else if (char === '}') type = 'brace_close';
+                    else if (char === '[') type = 'bracket_open';
+                    else if (char === ']') type = 'bracket_close';
+                    else if (char === ':') type = 'colon';
+                    else if (char === ',') type = 'comma';
+                    tokens.push({ type, value: char, start });
+                    i++;
+                    continue;
+                }
+
+                const start = i;
+                let val = '';
+                while (i < len) {
+                    const c = text[i];
+                    if (isWhitespace(c) || "{}[],:\"'/".includes(c)) break;
+                    val += c; i++;
+                }
+                if (val) tokens.push({ type: 'literal', value: val, start });
+                else i++;
+            }
+            return tokens;
+        },
+
+        applyMath(oldValStr, operation) {
+            const oldVal = parseFloat(oldValStr);
+            if (isNaN(oldVal)) return oldValStr;
+            let newVal = oldVal;
+            operation = operation.trim();
+              
+            if (operation.startsWith('+')) newVal += parseFloat(operation.substring(1));
+            else if (operation.startsWith('*')) newVal *= parseFloat(operation.substring(1));
+            else if (operation.startsWith('/')) newVal /= parseFloat(operation.substring(1));
+            else {
+                if (/^[+\-*/]/.test(operation)) {
+                     if (operation.startsWith('-')) newVal += parseFloat(operation);
+                     else if (operation.startsWith('+')) newVal += parseFloat(operation.substring(1));
+                } else {
+                    const parsed = parseFloat(operation);
+                    if (!isNaN(parsed)) newVal = parsed;
+                }
+            }
+            return parseFloat(newVal.toFixed(6)).toString();
+        },
+
+        // 扫描原始文本中数值的位置
+        scanPositions(text, positionMap) {
+            const tokens = this.tokenize(text);
+            const contextStack = [];
+            const indexMap = new Map();
+            let lastKey = null;
+
+            for (let i = 0; i < tokens.length; i++) {
+                const t = tokens[i];
+                const prev = i > 0 ? tokens[i-1] : null;
+                const next = i < tokens.length - 1 ? tokens[i+1] : null;
+
+                if (t.type === 'brace_open') {
+                    contextStack.push(lastKey || 'root');
+                    lastKey = null;
+                }
+                else if (t.type === 'brace_close') {
+                    contextStack.pop();
+                    lastKey = null;
+                }
+                else if (t.type === 'bracket_open') {
+                    contextStack.push(lastKey || 'arr');
+                    lastKey = null;
+                }
+                else if (t.type === 'bracket_close') {
+                    contextStack.pop();
+                    lastKey = null;
+                }
+                else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
+                    lastKey = t.value.replace(/['"]/g, '');
+                }
+                else if (t.type === 'literal' && prev?.type === 'colon') {
+                    const val = t.value;
+                    if (/^[-]?\d*\.?\d+$/.test(val)) {
+                        const fieldKey = lastKey || 'val';
+                        const basePath = contextStack.join('.') + '.' + fieldKey;
+                        const currentIdx = indexMap.get(basePath) || 0;
+                        indexMap.set(basePath, currentIdx + 1);
+                        const fullPath = basePath + '#' + currentIdx;
+                        
+                        // 记录在原始文本中的位置
+                        positionMap.set(fullPath, { 
+                            start: t.start, 
+                            end: t.start + t.value.length 
+                        });
+                    }
+                    lastKey = null;
+                }
+            }
+        },
+
+        scanGroups(text, mergeMode = false) {
+            const tokens = this.tokenize(text);
+            const groups = [];
+            const mergeMap = new Map();
+            const indexMap = new Map();
+
+            let currentGroup = null;
+            let lastKey = null;
+            const contextStack = [];
+            let tempName = null;
+            let nameDepth = null;
+
+            for (let i = 0; i < tokens.length; i++) {
+                const t = tokens[i];
+                const prev = i > 0 ? tokens[i-1] : null;
+                const next = i < tokens.length - 1 ? tokens[i+1] : null;
+                  
+                if (t.type === 'brace_open') {
+                    const propName = lastKey || 'root';
+                    contextStack.push(propName);
+
+                    if (mergeMode) {
+                        if (!mergeMap.has(propName)) {
+                            mergeMap.set(propName, { name: propName, fields: [], fieldKeys: new Set(), count: 0 });
+                        }
+                        currentGroup = mergeMap.get(propName);
+                        currentGroup.count++;
+                    } else {
+                        currentGroup = { name: propName, fields: [], fullPathBase: contextStack.join('.') };
+                        groups.push(currentGroup);
+                    }
+                      
+                    lastKey = null;
+                }
+                else if (t.type === 'brace_close') {
+                    contextStack.pop();
+                    lastKey = null;
+                    if (nameDepth !== null && contextStack.length < nameDepth) {
+                        tempName = null;
+                        nameDepth = null;
+                    }
+                }
+                else if (t.type === 'bracket_open') { contextStack.push(lastKey || 'arr'); lastKey = null; }
+                else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
+                else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
+                    lastKey = t.value.replace(/['"]/g, '');
+                    if (lastKey === 'name' && !mergeMode) {
+                        if (tokens[i+2] && (tokens[i+2].type === 'string' || tokens[i+2].type === 'literal')) {
+                            tempName = tokens[i+2].value.replace(/['"]/g, '');
+                            nameDepth = contextStack.length;
+                        }
+                    }
+                }
+                else if (t.type === 'literal' && prev?.type === 'colon') {
+                    const val = t.value;
+                    if (/^[-]?\d*\.?\d+$/.test(val)) {
+                        const fieldKey = lastKey || 'val';
+                          
+                        if (!currentGroup) {
+                             if (mergeMode) {
+                                 if(!mergeMap.has('root')) mergeMap.set('root', {name:'root', fields:[], fieldKeys:new Set(), count:1});
+                                 currentGroup = mergeMap.get('root');
+                             } else {
+                                 currentGroup = { name: 'root', fields: [] }; groups.push(currentGroup);
+                             }
+                        }
+
+                        if (mergeMode) {
+                            if (!currentGroup.fieldKeys.has(fieldKey)) {
+                                currentGroup.fieldKeys.add(fieldKey);
+                                currentGroup.fields.push({ key: fieldKey, val: val });
+                            }
+                        } else {
+                            const basePath = contextStack.join('.') + '.' + fieldKey;
+                            const currentIdx = indexMap.get(basePath) || 0;
+                            indexMap.set(basePath, currentIdx + 1);
+                            const fullPath = basePath + '#' + currentIdx;
+
+                            currentGroup.fields.push({
+                                key: fieldKey,
+                                val: val,
+                                fullPath: fullPath,
+                                position: t.start
+                            });
+
+                            if (tempName && currentGroup.name !== tempName && !currentGroup.name.includes(tempName)) {
+                                currentGroup.name = tempName + '.' + currentGroup.name;
+                            }
+                        }
+                    }
+                    lastKey = null;
+                }
+            }
+
+            if (mergeMode) {
+                const result = Array.from(mergeMap.values());
+                return result.filter(g => g.fields.length > 0);
+            } else {
+                return groups.filter(g => g.fields.length > 0);
+            }
+        },
+
+        process(text, options, outputPositions) {
+            const tokens = this.tokenize(text);
+            let output = '';
+            let indentLevel = 0;
+            const getIndent = () => options.mode === 'minify' ? '' : ' '.repeat(indentLevel * options.indent);
+
+            const vectorMap = new Map();
+            if (options.mode !== 'minify' && options.singleLineVectors) {
+                for (let i = 0; i < tokens.length; i++) {
+                    if (tokens[i].type === 'brace_open') {
+                        let j = i + 1, depth = 1, isVector = true, contentLen = 0;
+                        while (j < tokens.length && depth > 0) {
+                            if (tokens[j].type === 'brace_open' || tokens[j].type === 'bracket_open') { isVector = false; break; }
+                            if (tokens[j].type === 'brace_close') depth--;
+                            if (tokens[j].type === 'comment') { isVector = false; break; }
+                            contentLen += tokens[j].value.length;
+                            j++;
+                        }
+                        if (isVector && contentLen < 120) vectorMap.set(i, true);
+                    }
+                }
+            }
+
+            const inlineArrayMap = new Map();
+            if (options.mode !== 'minify' && options.simpleArrays) {
+                for (let i = 0; i < tokens.length; i++) {
+                    if (tokens[i].type === 'bracket_open') {
+                        let j = i + 1, depth = 1, isSimple = true;
+                        while (j < tokens.length && depth > 0) {
+                            const t = tokens[j];
+                            if (t.type === 'bracket_open') depth++;
+                            if (t.type === 'bracket_close') depth--;
+                            if (t.type === 'colon' || t.type === 'brace_open' || t.type === 'comment') { isSimple = false; break; }
+                            j++;
+                        }
+                        if (isSimple) inlineArrayMap.set(i, true);
+                    }
+                }
+            }
+
+            let inInlineBlock = false;
+            const contextStack = [];
+            let lastKey = null;
+            const indexMap = new Map();
+
+            for (let i = 0; i < tokens.length; i++) {
+                const t = tokens[i];
+                const prev = i > 0 ? tokens[i-1] : null;
+                const next = i < tokens.length - 1 ? tokens[i+1] : null;
+
+                if (t.type === 'brace_open') {
+                    contextStack.push(lastKey || 'root');
+                    lastKey = null;
+                }
+                else if (t.type === 'brace_close') contextStack.pop();
+                else if (t.type === 'bracket_open') { contextStack.push(lastKey || 'arr'); lastKey = null; }
+                else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
+                else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') lastKey = t.value.replace(/['"]/g, '');
+
+                // 数值处理和位置记录
+                if (t.type === 'literal' && prev?.type === 'colon' && /^[-]?\d*\.?\d+$/.test(t.value)) {
+                    const fieldKey = lastKey || 'val';
+                    const basePath = contextStack.join('.') + '.' + fieldKey;
+                    const currentIdx = indexMap.get(basePath) || 0;
+                    indexMap.set(basePath, currentIdx + 1);
+                    const fullPath = basePath + '#' + currentIdx;
+
+                    let finalValue = t.value;
+                    
+                    // 应用数值调整
+                    if (options.adjustments) {
+                        let formula = null;
+                        if (options.mergeMode) {
+                            const parentKey = contextStack[contextStack.length - 1] || 'root';
+                            const wildcardKey = `$${parentKey}.$${fieldKey}`;
+                            if (options.adjustments.has(wildcardKey)) {
+                                formula = options.adjustments.get(wildcardKey);
+                            }
+                        } else {
+                            if (options.adjustments.has(fullPath)) {
+                                formula = options.adjustments.get(fullPath);
+                            }
+                        }
+                        if (formula) {
+                            finalValue = this.applyMath(t.value, formula);
+                        }
+                    }
+
+                    // 记录输出位置（在写入之前）
+                    const outputStart = output.length;
+                    output += finalValue;
+                    const outputEnd = output.length;
+                    
+                    if (outputPositions) {
+                        outputPositions.set(fullPath, { start: outputStart, end: outputEnd });
+                    }
+                    
+                    lastKey = null;
+                    continue;
+                }
+
+                // 注释处理
+                if (t.type === 'comment') {
+                    if (!options.keepComments) continue;
+                    
+                    if (t.kind === 'line') {
+                        const sourceText = options.sourceText || text;
+                        let beforeCommentInSource = sourceText.substring(0, t.start);
+                        const lastNewlinePos = beforeCommentInSource.lastIndexOf('\n');
+                        const lineBeforeComment = lastNewlinePos >= 0 
+                            ? beforeCommentInSource.substring(lastNewlinePos + 1) 
+                            : beforeCommentInSource;
+                        
+                        const isEOLComment = lineBeforeComment.trim().length > 0;
+                        
+                        if (isEOLComment) {
+                            output += ' ' + t.value;
+                            if (options.mode !== 'minify' && !inInlineBlock) {
+                                output += '\n' + getIndent();
+                            }
+                        } else {
+                            if (options.mode === 'minify') {
+                                output += t.value;
+                            } else {
+                                output = output.trimEnd() + '\n' + getIndent() + t.value + '\n' + getIndent();
+                            }
+                        }
+                    } else {
+                        output += t.value;
+                    }
+                    continue;
+                }
+
+                // 检查下一个非空token是否是行尾注释
+                const hasTrailingComment = (idx) => {
+                    const nextToken = tokens[idx + 1];
+                    if (nextToken && nextToken.type === 'comment' && nextToken.kind === 'line') {
+                        const sourceText = options.sourceText || text;
+                        const beforeComment = sourceText.substring(0, nextToken.start);
+                        const lastNewline = beforeComment.lastIndexOf('\n');
+                        const lineContent = lastNewline >= 0 ? beforeComment.substring(lastNewline + 1) : beforeComment;
+                        return lineContent.trim().length > 0;
+                    }
+                    return false;
+                };
+
+                // 写入output
+                if (t.type === 'brace_open') {
+                    if (vectorMap.get(i)) { inInlineBlock = true; output += '{ '; }
+                    else {
+                        if (options.mode === 'minify') { output += '{'; }
+                        else { 
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (trailingComment) {
+                                output += '{';
+                                indentLevel++;
+                            } else {
+                                output += '{\n';
+                                indentLevel++; 
+                                output += getIndent();
+                            }
+                        }
+                    }
+                }
+                else if (t.type === 'brace_close') {
+                    if (inInlineBlock && vectorMap.get(findMatchingOpenIndex(tokens, i, 'brace'))) { 
+                        output += ' }';
+                        inInlineBlock = false; 
+                    }
+                    else {
+                        if (options.mode === 'minify') { output += '}'; }
+                        else { 
+                            indentLevel--; 
+                            output = output.trimEnd(); 
+                            output += '\n' + getIndent() + '}';
+                        }
+                    }
+                }
+                else if (t.type === 'bracket_open') {
+                    if (inlineArrayMap.get(i)) { inInlineBlock = true; output += '['; }
+                    else {
+                        if (options.mode === 'minify') { output += '['; }
+                        else { 
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (trailingComment) {
+                                output += '[';
+                                indentLevel++;
+                            } else {
+                                output += '[\n';
+                                indentLevel++; 
+                                output += getIndent();
+                            }
+                        }
+                    }
+                }
+                else if (t.type === 'bracket_close') {
+                    const openIdx = findMatchingOpenIndex(tokens, i, 'bracket');
+                    if (inlineArrayMap.get(openIdx)) { 
+                        output += ']';
+                        inInlineBlock = false; 
+                    }
+                    else {
+                        if (options.mode === 'minify') { output += ']'; }
+                        else { 
+                            indentLevel--; 
+                            output = output.trimEnd(); 
+                            output += '\n' + getIndent() + ']';
+                        }
+                    }
+                }
+                else if (t.type === 'comma') {
+                    output += ',';
+                    if (options.mode !== 'minify') {
+                        if (inInlineBlock) { output += ' '; }
+                        else { 
+                            const trailingComment = options.keepComments && hasTrailingComment(i);
+                            if (!trailingComment) {
+                                output += '\n' + getIndent();
+                            }
+                        }
+                    }
+                }
+                else if (t.type === 'colon') { 
+                    output += options.mode !== 'minify' ? ': ' : ':';
+                }
+                else if (t.type !== 'literal' || prev?.type !== 'colon') {
+                    // 非数值的 literal 或其他 token
+                    output += t.value;
+                }
+            }
+
+            let final = output.trim();
+            if (options.mode === 'format' && options.alignBraces) {
+                final = this.alignBrackets(final, outputPositions);
+            }
+            return final;
+        },
+
+        alignBrackets(jsonStr, outputPositions) {
+            const lines = jsonStr.split('\n');
+            const resultLines = [];
+            let i = 0;
+            
+            // 需要重新计算位置偏移
+            let charOffset = 0;
+            const lineStartOffsets = [0];
+            for (let li = 0; li < lines.length; li++) {
+                lineStartOffsets.push(lineStartOffsets[li] + lines[li].length + 1);
+            }
+              
+            while (i < lines.length) {
+                let j = i;
+                const block = [];
+                  
+                const currentLine = lines[i];
+                if (!currentLine.trim() || /^\s*[}\]]+,?$/.test(currentLine)) {
+                    resultLines.push(currentLine);
+                    i++;
+                    continue;
+                }
+
+                const currentIndentMatch = currentLine.match(/^(\s*)/);
+                const currentIndent = currentIndentMatch ? currentIndentMatch[1] : "";
+
+                while (j < lines.length) {
+                    const line = lines[j];
+                    if (!line.trim()) { j++; continue; }
+                      
+                    const indentMatch = line.match(/^(\s*)/);
+                    const indent = indentMatch ? indentMatch[1] : "";
+                      
+                    if (indent.length !== currentIndent.length) break;
+                      
+                    const trimmed = line.trim();
+                    const hasColon = trimmed.includes(':');
+                      
+                    if (hasColon) {
+                         block.push({ index: j, line: line, trimmed: trimmed });
+                    }
+                    j++;
+                }
+
+                let maxColonPos = 0;
+                let shouldAlignBlock = false;
+
+                block.forEach(item => {
+                    const colonIdx = item.line.indexOf(':');
+                    const valPart = item.line.substring(colonIdx + 1).trim();
+                      
+                    const isVector = valPart.startsWith('{');
+                      
+                    if (isVector) {
+                        if (colonIdx > maxColonPos) maxColonPos = colonIdx;
+                        shouldAlignBlock = true;
+                    }
+                });
+
+                for (let k = i; k < j; k++) {
+                    let line = lines[k];
+                      
+                    if (shouldAlignBlock && maxColonPos > 0) {
+                        const hasColon = line.includes(':');
+                          
+                        if (hasColon) {
+                             const colonIdx = line.indexOf(':');
+                             const valPart = line.substring(colonIdx + 1).trim();
+                             const isVector = valPart.startsWith('{');
+
+                             if (isVector) {
+                                 const part1 = line.substring(0, colonIdx + 1);
+                                 const part2 = valPart;
+                                 const padding = ' '.repeat(maxColonPos - colonIdx + 1);
+                                 line = part1 + padding + part2;
+                             }
+                        }
+                    }
+                    resultLines.push(line);
+                }
+
+                i = j;
+            }
+
+            // 对齐后需要重新计算 outputPositions
+            if (outputPositions && outputPositions.size > 0) {
+                const newText = resultLines.join('\n');
+                const newPositions = new Map();
+                
+                // 重新扫描对齐后文本的位置
+                const tokens = this.tokenize(newText);
+                const contextStack = [];
+                const indexMap = new Map();
+                let lastKey = null;
+
+                for (let ti = 0; ti < tokens.length; ti++) {
+                    const t = tokens[ti];
+                    const prev = ti > 0 ? tokens[ti-1] : null;
+                    const next = ti < tokens.length - 1 ? tokens[ti+1] : null;
+
+                    if (t.type === 'brace_open') {
+                        contextStack.push(lastKey || 'root');
+                        lastKey = null;
+                    }
+                    else if (t.type === 'brace_close') contextStack.pop();
+                    else if (t.type === 'bracket_open') { contextStack.push(lastKey || 'arr'); lastKey = null; }
+                    else if (t.type === 'bracket_close') { contextStack.pop(); lastKey = null; }
+                    else if ((t.type === 'literal' || t.type === 'string') && next?.type === 'colon') {
+                        lastKey = t.value.replace(/['"]/g, '');
+                    }
+                    else if (t.type === 'literal' && prev?.type === 'colon' && /^[-]?\d*\.?\d+$/.test(t.value)) {
+                        const fieldKey = lastKey || 'val';
+                        const basePath = contextStack.join('.') + '.' + fieldKey;
+                        const currentIdx = indexMap.get(basePath) || 0;
+                        indexMap.set(basePath, currentIdx + 1);
+                        const fullPath = basePath + '#' + currentIdx;
+                        
+                        newPositions.set(fullPath, { start: t.start, end: t.start + t.value.length });
+                        lastKey = null;
+                    }
+                }
+
+                // 更新原 outputPositions
+                outputPositions.clear();
+                newPositions.forEach((val, key) => outputPositions.set(key, val));
+            }
+
+            return resultLines.join('\n');
+        }
+    };
+
+    function findMatchingOpenIndex(tokens, closeIdx, typeStr) {
+        let depth = 0;
+        for (let i = closeIdx; i >= 0; i--) {
+            const t = tokens[i];
+            if (t.type === typeStr + '_close') depth++;
+            if (t.type === typeStr + '_open') {
+                depth--;
+                if (depth === 0) return i;
+            }
+        }
+        return -1;
+    }
+
+    app.init();
+</script>
+
+</body>
+</html>
