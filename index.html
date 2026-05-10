@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>21孔口琴音孔练习</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #000;
+    }
+    .page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px 80px;
+    }
+    .board {
+      --z: 1;
+      --hole-white: #ffffff;
+      --hole-dark: #3a3a3a;
+      --line: #000000;
+      /* 与「可重叠」版一致：琴格与数字共用同一列定义，才能对齐叠放 */
+      --col: minmax(calc(16px * var(--z)), 1fr);
+      --stage-h: calc(200px * var(--z));
+      border: none;
+      padding: calc(10px * var(--z)) 0;
+      background: transparent;
+      font-family: "Times New Roman", "SimSun", "Songti SC", "STSong", serif;
+      font-size: calc(clamp(11px, 2.2vw, 18px) * var(--z));
+      color: #000000;
+      user-select: none;
+      max-width: 100%;
+    }
+    .board h1 {
+      margin: 0 0 calc(10px * var(--z));
+      font-size: 0.88em;
+      font-weight: normal;
+      color: #ccc;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+    .workspace {
+      display: flex;
+      align-items: stretch;
+      gap: calc(10px * var(--z));
+      justify-content: center;
+    }
+    .sliders-left {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      justify-content: center;
+      flex-shrink: 0;
+      gap: calc(10px * var(--z));
+      padding: calc(4px * var(--z)) 0;
+    }
+    .vc {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: calc(4px * var(--z));
+      width: calc(42px * var(--z));
+      flex: 0 0 auto;
+    }
+    .vlab {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: 0.82em;
+      color: #aaa;
+      letter-spacing: 0.2em;
+    }
+    .slider-rail {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      width: 100%;
+      min-height: calc(100px * var(--z));
+    }
+    input.v-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: var(--stage-h);
+      height: calc(28px * var(--z));
+      margin: 0;
+      transform: rotate(-90deg);
+      transform-origin: center center;
+      cursor: pointer;
+      background: transparent;
+    }
+    input.v-range:focus {
+      outline: none;
+    }
+    input.v-range:focus-visible {
+      outline: 2px solid #666;
+      outline-offset: 2px;
+    }
+    input.v-range::-webkit-slider-runnable-track {
+      height: calc(10px * var(--z));
+      background: #4a4a4a;
+      border-radius: 2px;
+      border: 1px solid #2a2a2a;
+    }
+    input.v-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: calc(16px * var(--z));
+      height: calc(16px * var(--z));
+      margin-top: calc((10px * var(--z) - 16px * var(--z)) / 2);
+      border-radius: 50%;
+      background: #7a7a7a;
+      border: 1px solid #333;
+      box-shadow: 0 0 0 1px #222;
+    }
+    input.v-range::-moz-range-track {
+      height: calc(10px * var(--z));
+      background: #4a4a4a;
+      border-radius: 2px;
+      border: 1px solid #2a2a2a;
+    }
+    input.v-range::-moz-range-thumb {
+      width: calc(16px * var(--z));
+      height: calc(16px * var(--z));
+      border-radius: 50%;
+      background: #7a7a7a;
+      border: 1px solid #333;
+      box-shadow: 0 0 0 1px #222;
+    }
+    /* 舞台：固定高度，避免 flex 把高度拉乱导致层不叠 */
+    .stage {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      width: min(92vw, 52rem);
+      height: var(--stage-h);
+      flex-shrink: 0;
+      align-self: center;
+      overflow: hidden;
+      border: none;
+      background: transparent;
+    }
+    /* 琴格：与可重叠版相同（整行垂直居中，作底） */
+    .bg-strip {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 0;
+      display: grid;
+      grid-template-columns: repeat(21, var(--col));
+      gap: 1px;
+      background: var(--line);
+      pointer-events: none;
+    }
+    .bg-strip .hole {
+      aspect-ratio: 1 / 1.12;
+      min-height: calc(26px * var(--z));
+      background: var(--hole-dark);
+    }
+    .bg-strip .hole.white {
+      background: var(--hole-white);
+    }
+    .bg-strip .hole.dark {
+      background: var(--hole-dark);
+    }
+    /* 吸、吹各一层，均铺满舞台，数字在层内 translateY，叠在琴格之上 */
+    .layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      overflow: hidden;
+      pointer-events: none;
+      background: transparent;
+    }
+    .layer-blow {
+      z-index: 2;
+    }
+    .clip-inner {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      will-change: transform;
+    }
+    /* 数字行：列定义与琴格一致（可重叠版） */
+    .nums {
+      display: grid;
+      grid-template-columns: repeat(21, var(--col));
+      gap: 0;
+      background: transparent;
+      min-height: calc(44px * var(--z));
+    }
+    .nums .slot {
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(44px * var(--z));
+      line-height: 1;
+    }
+    .nums .note {
+      font-variant-numeric: tabular-nums;
+      color: #0a0a0a;
+      text-shadow: 0 0 calc(2px * var(--z)) #fff, 0 0 calc(1px * var(--z)) rgba(255, 255, 255, 0.9);
+    }
+    .zoom-dock {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      max-width: min(440px, calc(100vw - 24px));
+      background: rgba(24, 24, 24, 0.95);
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #ccc;
+      font-size: 14px;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+    .zoom-dock label {
+      flex-shrink: 0;
+      color: #bbb;
+    }
+    .zoom-dock input[type="range"] {
+      flex: 1;
+      min-width: 100px;
+      accent-color: #777;
+    }
+    .zoom-dock #zoom-lbl {
+      min-width: 3em;
+      text-align: right;
+      color: #e0e0e0;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="board" id="board" aria-label="21孔口琴练习">
+      <h1>21孔 · 琴格背景 · 吸/吹数字可叠</h1>
+      <div class="workspace">
+        <aside class="sliders-left" aria-label="上下对齐滑块">
+          <div class="vc">
+            <span class="vlab" title="吸气音">吸</span>
+            <div class="slider-rail">
+              <input id="sl-draw" class="v-range" type="range" min="0" max="100" value="50" aria-label="吸行数字上下位置" />
+            </div>
+          </div>
+          <div class="vc">
+            <span class="vlab" title="吹气音">吹</span>
+            <div class="slider-rail">
+              <input id="sl-blow" class="v-range" type="range" min="0" max="100" value="50" aria-label="吹行数字上下位置" />
+            </div>
+          </div>
+        </aside>
+        <div class="stage" id="stage">
+          <div class="bg-strip" title="琴格：2、8、14、20 为白孔；黑线为孔间分隔">
+            <div class="hole dark"></div>
+            <div class="hole white"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole white"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole white"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole dark"></div>
+            <div class="hole white"></div>
+            <div class="hole dark"></div>
+          </div>
+          <div class="layer layer-draw" id="clip-draw">
+            <div class="clip-inner" id="inner-draw">
+              <div class="nums" role="row">
+                <div class="slot"><span class="note">2&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">4&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">6&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">7&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">2</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">4</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">6</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">7</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">2&#x0307;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">4&#x0307;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">6&#x0307;</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="layer layer-blow" id="clip-blow">
+            <div class="clip-inner" id="inner-blow">
+              <div class="nums" role="row">
+                <div class="slot"></div>
+                <div class="slot"><span class="note">1&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">3&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">5&#x0323;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">1</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">3</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">5</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">1&#x0307;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">3&#x0307;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">5&#x0307;</span></div>
+                <div class="slot"></div>
+                <div class="slot"><span class="note">1&#x0307;&#x0307;</span></div>
+                <div class="slot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="zoom-dock" id="zoom-dock" role="region" aria-label="整体缩放">
+    <label for="zoom-sl">整体缩放</label>
+    <input id="zoom-sl" type="range" min="60" max="140" value="100" step="1" aria-valuemin="60" aria-valuemax="140" />
+    <span id="zoom-lbl">100%</span>
+  </div>
+  <script>
+    (function () {
+      var board = document.getElementById("board");
+      var zoomSl = document.getElementById("zoom-sl");
+      var zoomLbl = document.getElementById("zoom-lbl");
+
+      function bindSlider(slider, inner) {
+        var clip = inner.parentElement;
+        function update() {
+          var ch = clip.clientHeight;
+          var ih = inner.offsetHeight;
+          var maxY = Math.max(0, ch - ih);
+          var min = Number(slider.min);
+          var max = Number(slider.max);
+          var t = (Number(slider.value) - min) / (max - min || 1);
+          var y = (1 - t) * maxY;
+          inner.style.transform = "translateY(" + y + "px)";
+        }
+        slider.addEventListener("input", update);
+        window.addEventListener("resize", update);
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(update);
+        }
+        requestAnimationFrame(update);
+        return update;
+      }
+
+      var updDraw = bindSlider(document.getElementById("sl-draw"), document.getElementById("inner-draw"));
+      var updBlow = bindSlider(document.getElementById("sl-blow"), document.getElementById("inner-blow"));
+
+      function applyZoom() {
+        var pct = Number(zoomSl.value);
+        board.style.setProperty("--z", String(pct / 100));
+        zoomLbl.textContent = Math.round(pct) + "%";
+        updDraw();
+        updBlow();
+      }
+      zoomSl.addEventListener("input", applyZoom);
+      applyZoom();
+    })();
+  </script>
+</body>
+</html>
