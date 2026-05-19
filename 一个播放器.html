@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>一个播放器</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            user-select: none; /* 防止文本选中 */
+            -webkit-user-drag: none; /* 防止元素被拖动 */
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e6e6e6;
+            min-height: 100vh;
+            padding: 120px 20px 200px;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(25, 25, 45, 0.92);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            padding-top: 80px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 25px 20px;
+            background: linear-gradient(135deg, #ff7e5f, #e52d27, #b31217);
+            position: relative;
+            overflow: hidden;
+            margin-top: -80px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+            letter-spacing: 1.5px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            color: #fff;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        /* 固定播放器样式 */
+        .player-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 700px;
+            background: rgba(30, 30, 50, 0.95);
+            padding: 15px 20px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 126, 95, 0.3);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .player-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #ffd166;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 70%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        
+        .control-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ff7e5f;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .control-btn.active {
+            background: #ff7e5f;
+            color: white;
+            box-shadow: 0 0 10px rgba(255, 126, 95, 0.5);
+        }
+        
+        .player-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            position: relative;
+            padding-bottom: 0;
+        }
+        
+        .play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff7e5f, #e52d27);
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(229, 45, 39, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .time-display {
+            font-size: 0.95rem;
+            font-weight: 500;
+            min-width: 90px;
+            text-align: center;
+            user-select: none; /* 禁止文本选中 */
+        }
+        
+        .progress-container {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+            margin-bottom: 0;
+            overflow: visible;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff7e5f, #e52d27);
+            border-radius: 3px;
+            position: relative;
+            transform-origin: left;
+            transition: transform 0.1s linear;
+        }
+        
+        .progress-hover {
+            position: absolute;
+            bottom: 15px; /* 调整位置 */
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateX(-50%);
+            transition: opacity 0.2s;
+            min-width: 100px;
+            text-align: center;
+            z-index: 1100;
+            user-select: none; /* 禁止文本选中 */
+        }
+        
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .volume-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ff7e5f;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .volume-icon.active {
+            background: #ff7e5f;
+            color: white;
+            box-shadow: 0 0 10px rgba(255, 126, 95, 0.5);
+        }
+        
+        .volume-slider {
+            width: 80px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .volume-level {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff7e5f, #e52d27);
+            border-radius: 3px;
+            transform-origin: left;
+            transition: transform 0.1s linear;
+        }
+        
+        .volume-hover {
+            position: absolute;
+            bottom: 25px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateX(-50%);
+            transition: opacity 0.2s;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .lyrics-container {
+            display: flex;
+            padding: 0 20px 20px;
+            min-height: 400px;
+        }
+        
+        .lyrics-column {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .lyrics {
+            font-size: 1.08rem;
+            white-space: pre-line;
+            line-height: 1.9;
+            text-align: left;
+            font-family: 'Georgia', serif;
+            color: #f0f0f0;
+        }
+        
+        .lyrics-line {
+            padding: 8px 10px;
+            margin: 4px 0;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start; /* 更改为 flex-start */
+            gap: 15px; /* 添加间距 */
+            background: rgba(50, 50, 70, 0.5);
+        }
+        
+        .lyrics-text {
+            flex: 1; /* 使歌词占据剩余空间 */
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            cursor: text;
+            outline: none;
+            /* margin-right: 10px; 移除此行 */
+            word-break: break-word; /* 确保歌词换行 */
+        }
+        
+        .lyrics-line.active {
+            background: rgba(255, 209, 102, 0.25);
+            color: #ffd166;
+            font-weight: 500;
+            transform: scale(1.01);
+        }
+        
+        .time-edit {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 4px;
+            min-width: 280px;
+            margin-left: 10px;
+            font-size: 0.85rem;
+            flex-shrink: 0; /* 防止时间控制区域缩小 */
+        }
+        
+        @media screen and (max-width: 600px) {
+            .time-edit {
+                flex-direction: column;
+                align-items: flex-end; /* 更改为 flex-end 使子元素靠右对齐 */
+                min-width: auto;
+                margin-left: 0;
+                margin-top: 8px;
+                gap: 8px;
+            }
+            
+            .time-input-row {
+                width: 100%;
+                justify-content: flex-end; /* 使时间输入行靠右对齐 */
+            }
+            
+            .time-input {
+                /* 移除 width: 100% 和 box-sizing: border-box */
+            }
+            
+            .time-format {
+                /* 移除 width: 100% 和 box-sizing: border-box */
+                text-align: right; /* 右对齐 */
+            }
+            
+            .time-adjust-btn {
+                /* 移除 width: 100% 和 box-sizing: border-box */
+            }
+        }
+        
+        .time-input-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        
+        .time-input {
+            width: 50px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 126, 95, 0.4);
+            border-radius: 4px;
+            color: white;
+            padding: 3px 4px;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        
+        .time-format {
+            font-size: 0.75rem;
+            opacity: 0.7;
+            text-align: center;
+            min-width: 60px;
+        }
+        
+        .time-adjust-btn {
+            padding: 2px 4px;
+            border-radius: 3px;
+            background: rgba(255, 126, 95, 0.2);
+            border: none;
+            color: #ff7e5f;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            min-width: 35px;
+        }
+        
+        .current-time-btn {
+            background: rgba(255, 209, 102, 0.2);
+            color: #ffd166;
+            font-size: 0.75rem;
+            padding: 2px 4px;
+            min-width: 45px;
+        }
+        
+        .editor-panel {
+            background: rgba(40, 40, 60, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px;
+            border: 1px solid rgba(255, 126, 95, 0.4);
+        }
+        
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .editor-title {
+            font-size: 1.1rem;
+            color: #ffd166;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .editor-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .global-time-controls {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .editor-btn {
+            padding: 6px 12px;
+            background: rgba(255, 126, 95, 0.2);
+            border: none;
+            border-radius: 5px;
+            color: #ff7e5f;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .editor-btn:hover {
+            background: rgba(255, 126, 95, 0.3);
+        }
+        
+        .editor-btn i {
+            font-size: 0.9rem;
+        }
+        
+        .file-drop-area {
+            border: 2px dashed rgba(255, 126, 95, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 15px 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(30, 30, 50, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            z-index: 100;
+        }
+        
+        .file-drop-area:hover,
+        .file-drop-area.drag-over {
+            background: rgba(255, 126, 95, 0.2);
+            border-color: #ffd166;
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(255, 126, 95, 0.3);
+        }
+        
+        .file-drop-area i {
+            font-size: 2rem;
+            color: #ff7e5f;
+            transition: all 0.3s ease;
+        }
+        
+        .file-drop-area:hover i,
+        .file-drop-area.drag-over i {
+            color: #ffd166;
+            transform: scale(1.1);
+        }
+        
+        .file-drop-text {
+            font-size: 1rem;
+        }
+        
+        .file-drop-hint {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        
+        .file-type-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .file-type-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            width: 200px;
+            text-align: center;
+            border: 1px solid rgba(255, 126, 95, 0.3);
+        }
+        
+        .file-type-card i {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #ff7e5f;
+        }
+        
+        .file-type-title {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: #ffd166;
+        }
+        
+        /* 悬浮歌词控件 - 自适应宽度 */
+        .floating-lyrics {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            background: rgba(30, 30, 50, 0.85);
+            padding: 15px 0;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 126, 95, 0.3);
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            height: 160px;
+            border-radius: 15px;
+        }
+        
+        .floating-lyrics-container {
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .floating-lyrics-wrapper {
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .floating-lyrics-line {
+            font-size: 1.4rem;
+            color: #fff;
+            height: 40px;
+            line-height: 40px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: absolute;
+            width: 100%;
+            left: 0;
+            right: 0;
+            opacity: 0.5;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 20px;
+        }
+        
+        .floating-lyrics-line.current {
+            font-size: 1.6rem;
+            color: #ffd166;
+            font-weight: bold;
+            opacity: 1;
+            text-overflow: clip;
+            overflow: visible;
+            white-space: nowrap;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 900px) {
+            h1 {
+                font-size: 2.2rem;
+            }
+            
+            .player-container {
+                top: 10px;
+                padding: 12px 15px;
+            }
+            
+            .play-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+            
+            .file-type-row {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .floating-lyrics {
+                width: 90%;  /* 保持90%宽度 */
+                bottom: 40px;  /* 保持底部间距 */
+            }
+        }
+        
+        @media (max-width: 600px) {
+            header {
+                padding: 20px 15px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .player-container {
+                width: 95%;
+            }
+            
+            .player-controls {
+                flex-wrap: wrap;
+            }
+            
+            .progress-container {
+                order: 3;
+                width: 100%;
+            }
+            
+            .time-edit {
+                min-width: 150px;
+            }
+            
+            .floating-lyrics {
+                width: 90%;  /* 保持90%宽度 */
+                bottom: 40px;  /* 保持底部间距 */
+                height: 150px;
+                padding: 10px 15px;
+            }
+            
+            .floating-lyrics-line {
+                font-size: 1.1rem;
+            }
+            
+            .floating-lyrics-line.current {
+                font-size: 1.3rem;
+            }
+            
+            .btn-primary {
+                padding: 8px 15px;
+                font-size: 0.9rem;
+            }
+        }
+        
+        .status-message {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #ffd166;
+            padding: 10px 15px;
+            border-radius: 5px;
+            z-index: 2000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+        }
+        
+        .status-message.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+        
+        .speed-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #ff7e5f;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        
+        .speed-icon.active {
+            background: #ff7e5f;
+            color: white;
+            box-shadow: 0 0 10px rgba(255, 126, 95, 0.5);
+        }
+        
+        .speed-slider {
+            width: 80px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .speed-level {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(to right, #ff7e5f, #e52d27);
+            border-radius: 3px;
+            transform-origin: left;
+            transition: transform 0.1s linear;
+        }
+        
+        .speed-hover {
+            position: absolute;
+            bottom: 25px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateX(-50%);
+            transition: opacity 0.2s;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        /* 节选进度条样式 */
+        .segment-progress-container {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1001;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .segment-progress-container.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .segment-progress-bar {
+            height: 100%;
+            background: linear-gradient(to right, #4CAF50, #8BC34A);
+            border-radius: 2px;
+            position: relative;
+            transform-origin: left;
+            transition: transform 0.1s linear;
+            width: 100%;
+        }
+
+        .segment-progress-segment {
+            position: absolute;
+            height: 100%;
+            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            transition: background 0.2s ease;
+        }
+
+        .segment-progress-segment:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 节选进度条分段悬浮气泡样式 */
+        .segment-segment-tooltip {
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            z-index: 1002;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            user-select: none;
+        }
+
+        /* 节选范围标记线样式 - 调整高度和位置以覆盖第一进度条 */
+        .segment-marker-line {
+            position: absolute;
+            top: -12px;
+            height: 22px;
+            width: 3px; /* 加粗线条 */
+            background-color: white;
+            z-index: 1003;
+            pointer-events: none;
+        }
+
+        /* 灰色未播放区域样式 - 调整高度和位置以覆盖第一进度条 */
+        .progress-unplayed-overlay {
+            position: absolute;
+            top: -12px; /* 向上移动更多以覆盖第一进度条 */
+            height: 22px; /* 增加高度以覆盖第一进度条 */
+            background-color: rgba(100, 100, 100, 0.7);
+            border-radius: 3px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .segment-segment-tooltip:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* 播放进度条悬浮提示样式 */
+        .drop-zone {
+            border: 2px dashed rgba(255, 126, 95, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            background: rgba(255, 126, 95, 0.1);
+            transition: all 0.3s ease;
+            margin: 20px 0;
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- 状态消息 -->
+    <div class="status-message" id="statusMessage"></div>
+    
+    <!-- 固定播放器 -->
+    <div class="player-container">
+        <div class="player-header">
+            <div class="player-title">
+                <i class="fas fa-music"></i>
+                <span id="songTitle">一个播放器</span>
+            </div>
+            <div class="control-buttons">
+                <div class="speed-control">
+                    <button class="speed-icon" id="speedIcon" title="播放速度">
+                        <span id="speedText">x1.0</span>
+                    </button>
+                    <div class="speed-slider" id="speedSlider">
+                        <div class="speed-level" id="speedLevel"></div>
+                        <div class="speed-hover" id="speedHover">1.0x</div>
+                    </div>
+                </div>
+                <div class="volume-control">
+                    <button class="volume-icon" id="volumeIcon" title="静音">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+                    <div class="volume-slider" id="volumeSlider">
+                        <div class="volume-level" id="volumeLevel"></div>
+                        <div class="volume-hover" id="volumeHover">80%</div>
+                    </div>
+                </div>
+                <button class="control-btn" id="loopBtn" title="单曲循环">
+                    <i class="fas fa-redo"></i>
+                </button>
+                <button class="control-btn" id="segmentLoopBtn" title="节选循环">
+                    <i class="fas fa-random"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="player-controls">
+            <button class="play-btn" id="playBtn">
+                <i class="fas fa-play"></i>
+            </button>
+            <div class="time-display" id="timeDisplay">0:00 / 0:00</div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <div class="progress-hover" id="progressHover">0:00</div>
+                <div class="segment-progress-container" id="segmentProgressContainer">
+                    <div class="segment-progress-bar" id="segmentProgressBar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <audio id="audioPlayer">
+            <!-- 初始占位音频 -->
+        </audio>
+    </div>
+    
+    <!-- 悬浮歌词控件 - 自适应宽度 -->
+    <div class="floating-lyrics" id="floatingLyrics">
+        <div class="floating-lyrics-container">
+            <div class="floating-lyrics-wrapper" id="floatingLyricsWrapper">
+                <div class="floating-lyrics-line" id="prevLyric"></div>
+                <div class="floating-lyrics-line current" id="currentLyric">等待播放...</div>
+                <div class="floating-lyrics-line" id="nextLyric"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <h1>一个播放器</h1>
+        </header>
+        
+        <!-- 文件导入区域 -->
+        <div class="file-drop-area" id="fileDropArea">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <div class="file-drop-text">拖放文件或单击此处导入</div>
+            <div class="file-drop-hint">支持MP3音频文件,LRC/TXT歌词文件</div>
+            
+            <div class="file-type-row">
+                <div class="file-type-card">
+                    <i class="fas fa-file-audio"></i>
+                    <div class="file-type-title">音频文件</div>
+                    <div class="file-drop-hint">MP3格式</div>
+                </div>
+                <div class="file-type-card">
+                    <i class="fas fa-file-alt"></i>
+                    <div class="file-type-title">歌词文件</div>
+                    <div class="file-drop-hint">LRC或TXT格式</div>
+                </div>
+            </div>
+            
+            <input type="file" id="fileInput" accept="audio/mp3, text/plain, .lrc" multiple style="display: none;">
+        </div>
+        
+        <!-- 歌词编辑区域 -->
+        <div class="editor-panel">
+            <div class="editor-header">
+                <div class="editor-title">
+                    <i class="fas fa-edit"></i>
+                    <span>歌词编辑区域</span>
+                </div>
+                <div class="editor-controls">
+                    <button class="editor-btn" id="importLyricsBtn">
+                        <i class="fas fa-file-import"></i> 导入歌词文本
+                    </button>
+                    <button class="editor-btn" id="exportLrcBtn">
+                        <i class="fas fa-file-export"></i> 导出LRC文件
+                    </button>
+                    <button class="editor-btn" id="distributeBtn">
+                        <i class="fas fa-random"></i> 均匀分配时间
+                    </button>
+                    <div class="global-time-controls">
+                        <button class="editor-btn" id="globalMinus0_5">
+                            <i class="fas fa-minus"></i> 0.5s
+                        </button>
+                        <button class="editor-btn" id="globalMinus0_1">
+                            <i class="fas fa-minus"></i> 0.1s
+                        </button>
+                        <button class="editor-btn" id="globalPlus0_1">
+                            <i class="fas fa-plus"></i> 0.1s
+                        </button>
+                        <button class="editor-btn" id="globalPlus0_5">
+                            <i class="fas fa-plus"></i> 0.5s
+                        </button>
+                    </div>
+                    <button class="editor-btn" id="clearBtn">
+                        <i class="fas fa-trash"></i> 清空
+                    </button>
+                    <button class="editor-btn" id="undoBtn" disabled>
+                        <i class="fas fa-undo"></i> 撤销
+                    </button>
+                </div>
+            </div>
+            
+            <div class="lyrics-container">
+                <!-- 单列歌词显示 -->
+                <div class="lyrics-column">
+                    <div class="lyrics" id="lyricsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取DOM元素
+            const audioPlayer = document.getElementById('audioPlayer');
+            const playBtn = document.getElementById('playBtn');
+            const loopBtn = document.getElementById('loopBtn');
+            const volumeIcon = document.getElementById('volumeIcon');
+            const progressBar = document.getElementById('progressBar');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressHover = document.getElementById('progressHover');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const volumeSlider = document.getElementById('volumeSlider');
+            const volumeLevel = document.getElementById('volumeLevel');
+            const volumeHover = document.getElementById('volumeHover');
+            const fileDropArea = document.getElementById('fileDropArea');
+            const fileInput = document.getElementById('fileInput');
+            const songTitle = document.getElementById('songTitle');
+            const importLyricsBtn = document.getElementById('importLyricsBtn');
+            const exportLrcBtn = document.getElementById('exportLrcBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const undoBtn = document.getElementById('undoBtn');
+            const lyricsList = document.getElementById('lyricsList');
+            const floatingLyricsWrapper = document.getElementById('floatingLyricsWrapper');
+            const distributeBtn = document.getElementById('distributeBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const segmentLoopBtn = document.getElementById('segmentLoopBtn');
+            const segmentProgressContainer = document.getElementById('segmentProgressContainer');
+            const segmentProgressBar = document.getElementById('segmentProgressBar');
+            
+            // 全局时间调整按钮
+            const globalMinus0_5 = document.getElementById('globalMinus0_5');
+            const globalMinus0_1 = document.getElementById('globalMinus0_1');
+            const globalPlus0_1 = document.getElementById('globalPlus0_1');
+            const globalPlus0_5 = document.getElementById('globalPlus0_5');
+            
+            // 添加拖动状态变量
+            let isDragging = false;
+            let isVolumeDragging = false;
+            
+            // 歌词数据
+            let lyricsData = [];
+            let currentLyricIndex = -1;
+            
+            // 撤销功能相关变量
+            let history = [];
+            const MAX_HISTORY = 50; // 最多保存50次操作记录
+            
+            // 保存当前状态到历史记录
+            function saveToHistory() {
+                const currentState = JSON.parse(JSON.stringify(lyricsData));
+                history.push(currentState);
+                if (history.length > MAX_HISTORY) {
+                    history.shift(); // 移除最旧的记录
+                }
+                undoBtn.disabled = false;
+            }
+            
+            // 撤销按钮点击事件
+            undoBtn.addEventListener('click', function() {
+                if (history.length > 0) {
+                    lyricsData = history.pop();
+                    renderLyrics();
+                    renderFloatingLyrics();
+                    showStatus("已撤销最后一次操作");
+                    // 【新增】模拟两次点击节选循环按钮
+                    if (segmentLoopBtn.classList.contains('active')) {
+                        segmentLoopBtn.click();
+                        segmentLoopBtn.click();
+                    }
+                    if (history.length === 0) {
+                        undoBtn.disabled = true;
+                    }
+                }
+            });
+            
+            // 调整所有歌词时间
+            function adjustAllTimes(seconds) {
+                saveToHistory(); // 保存当前状态
+                // 从第二句歌词开始调整时间
+                for (let i = 1; i < lyricsData.length; i++) {
+                    lyricsData[i].time = Math.max(0, lyricsData[i].time + seconds);
+                }
+                renderLyrics();
+                showStatus(`所有歌词时间已${seconds > 0 ? '增加' : '减少'} ${Math.abs(seconds)}秒`);
+            }
+            
+            // 修改均匀分配时间的函数
+            function distributeLyricTimes() {
+                saveToHistory(); // 保存当前状态
+                const duration = audioPlayer.duration;
+                const interval = duration / (lyricsData.length + 1);
+                for (let i = 1; i < lyricsData.length; i++) {
+                    lyricsData[i].time = interval * (i + 1);
+                }
+                // 【新增】模拟两次点击节选循环按钮
+                if (segmentLoopBtn.classList.contains('active')) {
+                    segmentLoopBtn.click();
+                    segmentLoopBtn.click();
+                }
+            }
+            
+            // 修改清空按钮的处理函数
+            clearBtn.addEventListener('click', function() {
+                if (confirm("确定要清空所有歌词吗？")) {
+                    saveToHistory(); // 保存当前状态
+                    lyricsData = [];
+                    renderLyrics();
+                    renderFloatingLyrics();
+                    showStatus("歌词已清空");
+                }
+            });
+            
+            // 修改歌词行时间调整的事件处理
+            function addLyricLineEvents() {
+                const lyricsLines = document.querySelectorAll('.lyrics-line');
+                
+                lyricsLines.forEach(line => {
+                    const textElement = line.querySelector('.lyrics-text');
+                    textElement.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const index = parseInt(line.dataset.index);
+                            lyricsData[index].text = this.textContent;
+                            renderFloatingLyrics();
+                            if (segmentLoopBtn.classList.contains('active')) {
+                                updateSegmentProgress();
+                            }
+                            this.blur();
+                        }
+                    });
+                    
+                    const timeInput = line.querySelector('.time-input');
+                    timeInput.addEventListener('change', function() {
+                        saveToHistory(); // 保存当前状态
+                        const index = parseInt(line.dataset.index);
+                        const timeValue = parseFloat(this.value);
+                        
+                        // 处理特殊情况
+                        if (isNaN(timeValue) || timeValue < 0) {
+                            // 如果输入无效或负数，设置为未设置状态
+                            lyricsData[index].time = -1;
+                            this.value = '';
+                            const timeFormat = line.querySelector('.time-format');
+                            timeFormat.textContent = '未设置';
+                        } else {
+                            // 正常时间值处理
+                            const maxTime = audioPlayer.duration || 0;
+                            lyricsData[index].time = Math.min(maxTime, parseFloat(timeValue.toFixed(2)));
+                            this.value = lyricsData[index].time.toFixed(2);
+                            const timeFormat = line.querySelector('.time-format');
+                            timeFormat.textContent = formatTime(lyricsData[index].time);
+                        }
+
+                        if (segmentLoopBtn.classList.contains('active')) {
+                            updateSegmentProgress();
+                        }
+                        // 新增：模拟两次点击节选循环按钮
+                        segmentLoopBtn.click();
+                        segmentLoopBtn.click();
+                    });
+                    
+                    const minusBtn = line.querySelector('.minus-btn');
+                    const plusBtn = line.querySelector('.plus-btn');
+                    const currentTimeBtn = line.querySelector('.current-time-btn');
+                    const index = parseInt(line.dataset.index);
+                    
+                    minusBtn.addEventListener('click', function() {
+                        saveToHistory(); // 保存当前状态
+                        if (lyricsData[index].time <= 0) {
+                            // 如果当前时间小于等于0，点击减号按钮不执行任何操作
+                            return;
+                        }
+                        lyricsData[index].time = parseFloat((lyricsData[index].time - 0.1).toFixed(2));
+                        timeInput.value = lyricsData[index].time.toFixed(2);
+                        line.querySelector('.time-format').textContent = formatTime(lyricsData[index].time);
+                        if (segmentLoopBtn.classList.contains('active')) {
+                            updateSegmentProgress();
+                        }
+                        segmentLoopBtn.click();
+                        segmentLoopBtn.click();
+                    });
+                    
+                    plusBtn.addEventListener('click', function() {
+                        saveToHistory(); // 保存当前状态
+                        if (lyricsData[index].time < 0) {
+                            // 如果当前是未设置状态，从0开始
+                            lyricsData[index].time = 0;
+                        }
+                        const maxTime = audioPlayer.duration || 0;
+                        lyricsData[index].time = Math.min(maxTime, parseFloat((lyricsData[index].time + 0.1).toFixed(2)));
+                        timeInput.value = lyricsData[index].time.toFixed(2);
+                        line.querySelector('.time-format').textContent = formatTime(lyricsData[index].time);
+                        if (segmentLoopBtn.classList.contains('active')) {
+                            updateSegmentProgress();
+                        }
+                        // 新增：模拟两次点击节选循环按钮
+                        segmentLoopBtn.click();
+                        segmentLoopBtn.click();
+                    });
+                    
+                    currentTimeBtn.addEventListener('click', function() {
+                        if (audioPlayer.duration) {
+                            saveToHistory(); // 保存当前状态
+                            lyricsData[index].time = parseFloat(audioPlayer.currentTime.toFixed(2));
+                            timeInput.value = lyricsData[index].time.toFixed(2);
+                            line.querySelector('.time-format').textContent = formatTime(lyricsData[index].time);
+                            if (segmentLoopBtn.classList.contains('active')) {
+                                updateSegmentProgress();
+                            }
+                            // 【新增】模拟两次点击节选循环按钮
+                            segmentLoopBtn.click();
+                            segmentLoopBtn.click();
+                            setTimeout(() => {
+                                const nextIndex = index + 1;
+                                if (nextIndex < lyricsData.length) {
+                                    const nextLine = document.querySelector(`.lyrics-line[data-index="${nextIndex}"]`);
+                                    if (nextLine) {
+                                        const currentTimeBtn = nextLine.querySelector('.current-time-btn');
+                                        if (currentTimeBtn) {
+                                            const currentBtnRect = this.getBoundingClientRect();
+                                            const currentBtnTop = currentBtnRect.top;
+                                            const nextBtnRect = currentTimeBtn.getBoundingClientRect();
+                                            const scrollDistance = nextBtnRect.top - currentBtnTop;
+                                            window.scrollBy({
+                                                top: scrollDistance,
+                                                behavior: 'smooth'
+                                            });
+                                        }
+                                    }
+                                }
+                            }, 100);
+                        }
+                    });
+                });
+            }
+            
+            // 音量图标点击事件
+            let lastVolume = 0.8; // 保存上次的音量值
+            volumeIcon.addEventListener('click', function() {
+                if (audioPlayer.volume > 0) {
+                    // 如果当前有声音，则静音
+                    lastVolume = audioPlayer.volume;
+                    audioPlayer.volume = 0;
+                    volumeLevel.style.transform = 'scaleX(0)';
+                    volumeIcon.classList.add('active');
+                    volumeIcon.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                    showStatus("静音已开启");
+                } else {
+                    // 如果当前是静音，则恢复上次的音量
+                    audioPlayer.volume = lastVolume;
+                    volumeLevel.style.transform = `scaleX(${lastVolume})`;
+                    volumeIcon.classList.remove('active');
+                    volumeIcon.innerHTML = '<i class="fas fa-volume-up"></i>';
+                    showStatus("静音已关闭");
+                }
+            });
+            
+            // 音量变化时更新图标
+            audioPlayer.addEventListener('volumechange', function() {
+                if (audioPlayer.volume === 0) {
+                    volumeIcon.classList.add('active');
+                    volumeIcon.innerHTML = '<i class="fas fa-volume-mute"></i>';
+                } else {
+                    volumeIcon.classList.remove('active');
+                    if (audioPlayer.volume < 0.5) {
+                        volumeIcon.innerHTML = '<i class="fas fa-volume-down"></i>';
+                    } else {
+                        volumeIcon.innerHTML = '<i class="fas fa-volume-up"></i>';
+                    }
+                }
+            });
+            
+            // 显示状态消息
+            function showStatus(message) {
+                statusMessage.textContent = message;
+                statusMessage.classList.add('show');
+                
+                setTimeout(() => {
+                    statusMessage.classList.remove('show');
+                }, 3000);
+            }
+            
+            // 初始化歌词
+            initializeLyrics();
+            
+            // 播放/暂停按钮功能
+            playBtn.addEventListener('click', function() {
+                if (audioPlayer.paused) {
+                    audioPlayer.play();
+                    playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                    showStatus("音乐播放中");
+                } else {
+                    audioPlayer.pause();
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    showStatus("音乐已暂停");
+                }
+            });
+            
+            // 单曲循环功能
+            loopBtn.addEventListener('click', function() {
+                loopBtn.classList.toggle('active');
+                audioPlayer.loop = !audioPlayer.loop;
+                
+                if (audioPlayer.loop) {
+                    showStatus("单曲循环已开启");
+                } else {
+                    showStatus("单曲循环已关闭");
+                }
+            });
+            
+            // 文件拖放功能
+            fileDropArea.addEventListener('click', function() {
+                fileInput.value = ''; // 清除文件选择器的值
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                if (this.files.length > 0) {
+                    processFiles(this.files);
+                }
+            });
+            
+            // 页面拖放事件
+            document.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                // 检查是否包含文件
+                if (e.dataTransfer.types.includes('Files')) {
+                    fileDropArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    fileDropArea.classList.add('drag-over');
+                }
+            });
+            
+            document.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                fileDropArea.classList.remove('drag-over');
+            });
+            
+            document.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                fileDropArea.classList.remove('drag-over');
+                // 处理拖入的文件
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    processFiles(files); // 修正这里的函数名
+                }
+            });
+            
+            // 导入歌词按钮
+            importLyricsBtn.addEventListener('click', function() {
+                const lyricsText = prompt("请输入歌词（每行一句）：");
+                if (lyricsText) {
+                    parseLyricsText(lyricsText);
+                    renderLyrics();
+                    renderFloatingLyrics();
+                    showStatus("歌词已导入");
+                    
+                    // 如果有音频，自动均匀分配时间
+                    if (audioPlayer.src && audioPlayer.duration > 0) {
+                        distributeLyricTimes();
+                        renderLyrics();
+                    }
+                }
+            });
+            
+            // 导出LRC按钮
+            exportLrcBtn.addEventListener('click', function() {
+                if (lyricsData.length === 0) {
+                    showStatus("没有歌词可导出");
+                    return;
+                }
+                exportLrcFile();
+            });
+            
+            // 均匀分配时间按钮
+            distributeBtn.addEventListener('click', function() {
+                if (lyricsData.length === 0) {
+                    showStatus("没有歌词可分配时间");
+                    return;
+                }
+                
+                if (audioPlayer.duration && audioPlayer.duration > 0) {
+                    distributeLyricTimes();
+                    renderLyrics();
+                    showStatus("时间已根据歌曲时长均匀分配");
+                } else {
+                    showStatus("请先导入音频文件");
+                }
+            });
+            
+            // 全局时间调整按钮
+            globalMinus0_5.addEventListener('click', () => {
+                adjustAllTimes(-0.5);
+                // 【新增】模拟两次点击节选循环按钮
+                if (segmentLoopBtn.classList.contains('active')) {
+                    segmentLoopBtn.click();
+                    segmentLoopBtn.click();
+                }
+            });
+            globalMinus0_1.addEventListener('click', () => {
+                adjustAllTimes(-0.1);
+                // 【新增】模拟两次点击节选循环按钮
+                if (segmentLoopBtn.classList.contains('active')) {
+                    segmentLoopBtn.click();
+                    segmentLoopBtn.click();
+                }
+            });
+            globalPlus0_1.addEventListener('click', () => {
+                adjustAllTimes(0.1);
+                // 【新增】模拟两次点击节选循环按钮
+                if (segmentLoopBtn.classList.contains('active')) {
+                    segmentLoopBtn.click();
+                    segmentLoopBtn.click();
+                }
+            });
+            globalPlus0_5.addEventListener('click', () => {
+                adjustAllTimes(0.5);
+                // 【新增】模拟两次点击节选循环按钮
+                if (segmentLoopBtn.classList.contains('active')) {
+                    segmentLoopBtn.click();
+                    segmentLoopBtn.click();
+                }
+            });
+            
+            // 处理拖放文件
+            function processFiles(files) {
+                let audioFile = null;
+                let lyricsFile = null;
+                
+                for (let file of files) {
+                    if (file.type.startsWith('audio/') || file.name.endsWith('.mp3')) {
+                        audioFile = file;
+                    } else if (file.type === 'text/plain' || file.name.endsWith('.lrc') || file.name.endsWith('.txt')) {
+                        lyricsFile = file;
+                    }
+                }
+                
+                if (audioFile) loadAudioFile(audioFile);
+                if (lyricsFile) loadLyricsFile(lyricsFile);
+                
+                if (!audioFile && !lyricsFile) {
+                    showStatus("不支持的文件类型");
+                }
+            }
+            
+            // 加载音频文件
+            function loadAudioFile(file) {
+                // 更新歌曲标题
+                const fileName = file.name.replace(/\.[^/.]+$/, "");
+                songTitle.textContent = "正在播放：" + fileName;
+                
+                // 创建对象URL并设置音频源
+                const objectUrl = URL.createObjectURL(file);
+                audioPlayer.src = objectUrl;
+                
+                // 播放音频
+                audioPlayer.play();
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                showStatus("正在播放: " + fileName);
+                
+                // 只有当所有歌词都没有时间时才自动均匀分配时间
+                if (lyricsData.length > 0 && lyricsData.every(lyric => lyric.time === 0)) {
+                    setTimeout(() => {
+                        distributeLyricTimes();
+                        renderLyrics();
+                        renderFloatingLyrics();
+                        showStatus("歌词时间已自动分配");
+                    }, 1000);
+                } else {
+                     // 如果歌词有时间，且节选循环开启，更新进度条
+                     if (segmentLoopBtn.classList.contains('active')) {
+                          setTimeout(() => { // 等待 metadata loaded
+                               updateSegmentProgress();
+                           }, 500);
+                     }
+                }
+            }
+            
+            // 加载歌词文件
+            function loadLyricsFile(file) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    
+                    if (file.name.endsWith('.lrc')) {
+                        parseLrcContent(content);
+                    } else {
+                        parseLyricsText(content);
+                    }
+                    
+                    renderLyrics();
+                    renderFloatingLyrics();
+                    showStatus("歌词已导入: " + file.name);
+                     // 如果节选循环开启，更新进度条
+                     if (segmentLoopBtn.classList.contains('active')) {
+                         // 确保音频时长已加载
+                          if(audioPlayer.duration > 0) {
+                             updateSegmentProgress();
+                          } else {
+                             // 等待音频加载后再更新
+                             audioPlayer.addEventListener('loadedmetadata', function onMetaLoaded() {
+                                 updateSegmentProgress();
+                                 audioPlayer.removeEventListener('loadedmetadata', onMetaLoaded);
+                             });
+                          }
+                     }
+                };
+                
+                reader.readAsText(file);
+            }
+            
+            // 解析LRC歌词内容
+            function parseLrcContent(content) {
+                lyricsData = [];
+                const lines = content.split('\n');
+                
+                for (let line of lines) {
+                    line = line.trim().replace(/\r/g, '');
+                    
+                    // 忽略空行和标签行
+                    if (!line || (line.startsWith('[') && /\[(ar|ti|al|by):/.test(line))) continue;
+                    
+                    // 解析时间标签
+                    const timeTags = line.match(/\[\d+:\d+\.\d+\]/g);
+                    
+                    if (timeTags && timeTags.length > 0) {
+                        const text = line.replace(/\[\d+:\d+\.\d+\]/g, '').trim();
+                        
+                        if (text) {
+                            // 只取第一个时间标签
+                            const timeTag = timeTags[0];
+                            const timeMatch = timeTag.match(/\[(\d+):(\d+)\.(\d+)\]/);
+                            
+                            if (timeMatch) {
+                                const minutes = parseInt(timeMatch[1]);
+                                const seconds = parseInt(timeMatch[2]);
+                                const milliseconds = parseInt(timeMatch[3]);
+                                const time = minutes * 60 + seconds + milliseconds / 100;
+                                
+                                lyricsData.push({ text, time });
+                            }
+                        }
+                    } else if (line.trim() !== '') {
+                        lyricsData.push({ text: line, time: 0 });
+                    }
+                }
+                
+                // 插入"幽灵歌词"逻辑
+                if (lyricsData.length > 0 && lyricsData[0].text !== "") {
+                    lyricsData.unshift({ text: "", time: 0 });
+                }
+
+                // 按时间排序
+                lyricsData.sort((a, b) => a.time - b.time);
+            }
+            
+            // 解析歌词文本
+            function parseLyricsText(text) {
+                lyricsData = [];
+                const lines = text.split('\n');
+                
+                for (let line of lines) {
+                    line = line.trim().replace(/\r/g, '');
+                    if (!line) continue;
+                    lyricsData.push({ text: line, time: 0 });
+                }
+
+                // 插入"幽灵歌词"逻辑
+                if (lyricsData.length > 0 && lyricsData[0].text !== "") {
+                    lyricsData.unshift({ text: "", time: 0 });
+                }
+            }
+            
+            // 格式化时间为分:秒.毫秒
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                const ms = Math.floor((seconds % 1) * 100);
+                return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+            }
+            
+            // 初始化歌词
+            function initializeLyrics() {
+                const sampleLyrics = [
+                    "",
+                    "歌词1",               
+                    "歌词2"
+                ];
+                
+                lyricsData = sampleLyrics.map(text => ({ text, time: 0 }));
+                renderLyrics();
+                renderFloatingLyrics();
+            }
+            
+            // 渲染歌词编辑区域
+            function renderLyrics() {
+                lyricsList.innerHTML = '';
+                for (let i = 0; i < lyricsData.length; i++) {
+                    const lyric = lyricsData[i];
+                    // 如果是第一句且是幽灵歌词，则跳过渲染
+                    if (i === 0 && lyric.text === "" && lyric.time === 0) {
+                        continue;
+                    }
+                    const line = createLyricLine(lyric, i);
+                    lyricsList.appendChild(line);
+                }
+                addLyricLineEvents();
+                if (segmentLoopBtn.classList.contains('active')) {
+                    updateSegmentProgress();
+                }
+                updateSegmentMarkersIfNeeded();
+            }
+            
+            // 渲染悬浮歌词
+            function renderFloatingLyrics() {
+                floatingLyricsWrapper.innerHTML = '';
+                
+                for (let i = 0; i < lyricsData.length; i++) {
+                    const line = document.createElement('div');
+                    line.className = 'floating-lyrics-line';
+                    line.textContent = lyricsData[i].text;
+                    line.style.top = `${(i - currentLyricIndex + 1) * 40}px`;
+                    
+                    if (i === currentLyricIndex) {
+                        line.classList.add('current');
+                    }
+                    
+                    floatingLyricsWrapper.appendChild(line);
+                }
+            }
+            
+            // 更新悬浮歌词位置
+            function updateFloatingLyricsPosition() {
+                const lines = document.querySelectorAll('.floating-lyrics-line');
+                
+                lines.forEach(line => line.classList.remove('current'));
+                
+                lines.forEach((line, index) => {
+                    // 修改位置计算逻辑，使当前歌词居中显示
+                    const position = (index - currentLyricIndex + 1) * 40;
+                    line.style.top = `${position}px`;
+                    if (index === currentLyricIndex) {
+                        line.classList.add('current');
+                    }
+                });
+            }
+            
+            // 创建歌词行元素
+            function createLyricLine(lyric, index) {
+                const line = document.createElement('div');
+                line.className = 'lyrics-line';
+                line.dataset.index = index;
+                
+                line.innerHTML = `
+                    <div class="lyrics-text" contenteditable="true">${lyric.text}</div>
+                    <div class="time-edit">
+                        <input type="text" class="time-input" value="${lyric.time > 0 ? lyric.time.toFixed(2) : ''}" placeholder="秒数">
+                        <div class="time-format">${lyric.time > 0 ? formatTime(lyric.time) : '未设置'}</div>
+                        <button class="time-adjust-btn minus-btn" title="减少0.1秒">-0.1s</button>
+                        <button class="time-adjust-btn plus-btn" title="增加0.1秒">+0.1s</button>
+                        <button class="time-adjust-btn current-time-btn" title="使用当前播放时间">当前</button>
+                    </div>
+                `;
+                
+                return line;
+            }
+            
+            // 导出LRC文件
+            function exportLrcFile() {
+                let lrcContent = "[ar:歌手名]\n[ti:歌曲名]\n[al:专辑名]\n[by:歌词编辑器]\n\n";
+                
+                for (let lyric of lyricsData) {
+                    const minutes = Math.floor(lyric.time / 60);
+                    const seconds = Math.floor(lyric.time % 60);
+                    const milliseconds = Math.floor((lyric.time % 1) * 100);
+                    
+                    const timeTag = `[${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}]`;
+                    lrcContent += `${timeTag}${lyric.text}\n`;
+                }
+                
+                // 创建下载链接
+                const blob = new Blob([lrcContent], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${songTitle.textContent.replace('正在播放：', '')}.lrc`;
+                document.body.appendChild(a);
+                a.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }, 100);
+                showStatus("LRC文件已导出");
+            }
+            
+            // 更新悬浮歌词
+            function updateFloatingLyrics() {
+                let currentTime = audioPlayer.currentTime;
+                let newIndex = -1;
+                
+                // 找到当前歌词索引
+                for (let i = lyricsData.length - 1; i >= 0; i--) {
+                    if (currentTime >= lyricsData[i].time) {
+                        newIndex = i;
+                        break;
+                    }
+                }
+                
+                if (newIndex === currentLyricIndex) return;
+                currentLyricIndex = newIndex;
+                updateFloatingLyricsPosition();
+            }
+            
+            // 更新进度条
+            audioPlayer.addEventListener('timeupdate', function() {
+                if (!isDragging) {
+                    const progressPercent = (audioPlayer.currentTime / audioPlayer.duration);
+                    progressBar.style.transform = `scaleX(${progressPercent})`;
+                }
+                
+                // 更新时间显示
+                const currentMinutes = Math.floor(audioPlayer.currentTime / 60);
+                const currentSeconds = Math.floor(audioPlayer.currentTime % 60);
+                const durationMinutes = Math.floor(audioPlayer.duration / 60);
+                const durationSeconds = Math.floor(audioPlayer.duration % 60);
+                
+                timeDisplay.textContent = 
+                    `${currentMinutes}:${currentSeconds < 10 ? '0' : ''}${currentSeconds} / ${durationMinutes}:${durationSeconds < 10 ? '0' : ''}${durationSeconds}`;
+                
+                // 更新悬浮歌词
+                updateFloatingLyrics();
+            });
+            
+            // 进度条拖动效果
+            progressContainer.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isDragging = true;
+                updateProgress(e);
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isDragging) return;
+                updateProgress(e);
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (!isDragging) return;
+                isDragging = false;
+
+                // 获取当前进度容器宽度和音频总时长
+                const width = progressContainer.clientWidth;
+                const duration = audioPlayer.duration;
+
+                // 计算目标时间
+                const percent = parseFloat(progressBar.style.transform.replace('scaleX(', '').replace(')', ''));
+                const newTime = percent * duration;
+
+                // 如果节选循环开启且有选中范围
+                if (segmentLoopBtn.classList.contains('active') && selectedSegment) {
+                    if (newTime < selectedSegment.start) {
+                        // 拖到左边，跳到节选起点
+                        audioPlayer.currentTime = selectedSegment.start;
+                        showStatus(`已跳转到节选起始位置: ${formatTime(selectedSegment.start)}`);
+                    } else if (newTime > selectedSegment.end) {
+                        // 拖到右边，跳到节选起点
+                        audioPlayer.currentTime = selectedSegment.start;
+                        showStatus(`已跳转到节选起始位置: ${formatTime(selectedSegment.start)}`);
+                    } else {
+                        // 拖在节选范围内，正常跳转到目标时间
+                        audioPlayer.currentTime = newTime;
+                        showStatus(`已跳转到: ${formatTime(newTime)}`);
+                    }
+                } else {
+                    // 节选循环关闭，正常跳转到目标时间
+                    audioPlayer.currentTime = newTime;
+                }
+
+                // 隐藏气泡
+                progressHover.style.opacity = 0;
+            });
+            
+            function updateProgress(e) {
+                const rect = progressContainer.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const percent = clickX / width;
+                
+                progressBar.style.transform = `scaleX(${percent})`;
+                
+                // 更新悬停显示
+                progressHover.style.left = `${clickX}px`;
+                progressHover.style.opacity = 1;
+                
+                // 计算时间和百分比
+                const time = percent * audioPlayer.duration;
+                const minutes = Math.floor(time / 60);
+                const seconds = Math.floor(time % 60);
+                const milliseconds = Math.floor((time % 1) * 100);
+                
+                // 显示两种格式：时间（分:秒）和百分比
+                progressHover.textContent = `${time.toFixed(1)}s (${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}) ${Math.round(percent * 100)}%`;
+            }
+            
+            // 进度条鼠标移动事件
+            progressContainer.addEventListener('mousemove', function(e) {
+                if (isDragging) return;
+                
+                const rect = this.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const percent = clickX / width;
+                const time = percent * audioPlayer.duration;
+                const minutes = Math.floor(time / 60);
+                const seconds = Math.floor(time % 60);
+                const milliseconds = Math.floor((time % 1) * 100);
+                
+                // 更新悬停显示
+                progressHover.style.left = `${clickX}px`;
+                progressHover.style.opacity = 1;
+                progressHover.textContent = `${time.toFixed(1)}s (${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}) ${Math.round(percent * 100)}%`;
+            });
+            
+            // 进度条鼠标离开事件
+            progressContainer.addEventListener('mouseleave', function() {
+                if (!isDragging) {
+                    progressHover.style.opacity = 0;
+                }
+            });
+            
+            // 音量条拖动效果
+            volumeSlider.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isVolumeDragging = true;
+                updateVolume(e);
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isVolumeDragging) return;
+                updateVolume(e);
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (!isVolumeDragging) return;
+                isVolumeDragging = false;
+                volumeHover.style.opacity = 0;
+            });
+            
+            function updateVolume(e) {
+                const rect = volumeSlider.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const volume = clickX / width;
+                
+                // 更新音量显示
+                volumeLevel.style.transform = `scaleX(${volume})`;
+                volumeHover.style.left = `${clickX}px`;
+                volumeHover.style.opacity = 1;
+                volumeHover.textContent = `${Math.round(volume * 100)}%`;
+                
+                // 实时更新音频音量
+                audioPlayer.volume = volume;
+            }
+            
+            // 音量条鼠标移动事件（仅显示提示，不改变音量）
+            volumeSlider.addEventListener('mousemove', function(e) {
+                if (isVolumeDragging) return;
+                
+                const rect = this.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const volume = clickX / width;
+                
+                // 只更新提示显示
+                volumeHover.style.left = `${clickX}px`;
+                volumeHover.style.opacity = 1;
+                volumeHover.textContent = `${Math.round(volume * 100)}%`;
+            });
+            
+            // 音量条鼠标离开事件
+            volumeSlider.addEventListener('mouseleave', function() {
+                if (!isVolumeDragging) {
+                    volumeHover.style.opacity = 0;
+                }
+            });
+            
+            // 设置初始音量
+            audioPlayer.volume = 0.8;
+            volumeLevel.style.transform = 'scaleX(0.8)';
+            
+            // 歌曲加载后更新时间显示
+            audioPlayer.addEventListener('loadedmetadata', function() {
+                const durationMinutes = Math.floor(audioPlayer.duration / 60);
+                const durationSeconds = Math.floor(audioPlayer.duration % 60);
+                timeDisplay.textContent = `0:00 / ${durationMinutes}:${durationSeconds < 10 ? '0' : ''}${durationSeconds}`;
+            });
+            
+            // 歌曲结束时重置
+            audioPlayer.addEventListener('ended', function() {
+                if (!audioPlayer.loop) {
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    progressBar.style.transform = 'scaleX(0)';
+                    timeDisplay.textContent = `0:00 / ${Math.floor(audioPlayer.duration / 60)}:${Math.floor(audioPlayer.duration % 60)}`;
+                    currentLyricIndex = -1;
+                    updateFloatingLyricsPosition();
+                }
+            });
+
+            const speedIcon = document.getElementById('speedIcon');
+            const speedSlider = document.getElementById('speedSlider');
+            const speedLevel = document.getElementById('speedLevel');
+            const speedHover = document.getElementById('speedHover');
+            const speedText = document.getElementById('speedText');
+            
+            // 添加拖动状态变量
+            let isSpeedDragging = false;
+            
+            // 初始化播放速度
+            let currentSpeed = 1.0;
+            audioPlayer.playbackRate = currentSpeed;
+            speedLevel.style.transform = 'scaleX(0.5)'; // 初始位置在中间
+            
+            // 播放速度条拖动效果
+            speedSlider.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isSpeedDragging = true;
+                updateSpeed(e);
+            });
+            
+            document.addEventListener('mousemove', function(e) {
+                if (!isSpeedDragging) return;
+                updateSpeed(e);
+            });
+            
+            document.addEventListener('mouseup', function() {
+                if (!isSpeedDragging) return;
+                isSpeedDragging = false;
+                speedHover.style.opacity = 0;
+            });
+            
+            function updateSpeed(e) {
+                const rect = speedSlider.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const speed = 0.5 + (clickX / width) * 1.5; // 0.5到2.0之间
+                const roundedSpeed = Math.round(speed * 10) / 10; // 保留一位小数
+                
+                // 更新速度显示
+                speedLevel.style.transform = `scaleX(${(speed - 0.5) / 1.5})`;
+                speedHover.style.left = `${clickX}px`;
+                speedHover.style.opacity = 1;
+                speedHover.textContent = `${roundedSpeed}x`;
+                speedText.textContent = `x${roundedSpeed}`;
+                
+                // 实时更新音频播放速度
+                audioPlayer.playbackRate = roundedSpeed;
+                showStatus(`播放速度: ${roundedSpeed}x`);
+            }
+            
+            // 速度条鼠标移动事件（仅显示提示，不改变速度）
+            speedSlider.addEventListener('mousemove', function(e) {
+                if (isSpeedDragging) return;
+                
+                const rect = this.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const width = rect.width;
+                const speed = 0.5 + (clickX / width) * 1.5;
+                const roundedSpeed = Math.round(speed * 10) / 10;
+                
+                // 只更新提示显示
+                speedHover.style.left = `${clickX}px`;
+                speedHover.style.opacity = 1;
+                speedHover.textContent = `${roundedSpeed}x`;
+            });
+            
+            // 速度条鼠标离开事件
+            speedSlider.addEventListener('mouseleave', function() {
+                if (!isSpeedDragging) {
+                    speedHover.style.opacity = 0;
+                }
+            });
+            
+            // 速度图标点击事件 - 重置为1.0倍速
+            speedIcon.addEventListener('click', function() {
+                currentSpeed = 1.0;
+                audioPlayer.playbackRate = currentSpeed;
+                speedLevel.style.transform = 'scaleX(0.5)';
+                speedText.textContent = 'x1.0';
+                showStatus("播放速度已重置为1.0x");
+            });
+
+            // 添加节点循环相关变量
+            let isSegmentLooping = false;
+
+            // 修改节选循环按钮点击事件
+            segmentLoopBtn.addEventListener('click', function() {
+                segmentLoopBtn.classList.toggle('active');
+                segmentProgressContainer.classList.toggle('visible');
+                
+                if (segmentLoopBtn.classList.contains('active')) {
+                    showStatus("节选循环已开启");
+                    isSegmentLooping = true;
+                    // 只有开启时才更新，确保有音频和歌词数据
+                    if (audioPlayer.src && audioPlayer.duration > 0 && lyricsData.length > 0) {
+                        // 新增：自动选取当前播放分段
+                        let currentTime = audioPlayer.currentTime;
+                        let currentIndex = 0;
+                        for (let i = 0; i < lyricsData.length; i++) {
+                            if (currentTime >= lyricsData[i].time) {
+                                currentIndex = i;
+                            } else {
+                                break;
+                            }
+                        }
+                        // 选中当前分段
+                        addSegmentMarkers(currentIndex, currentIndex + 1);
+                        // 选中后再刷新分段条
+                        updateSegmentProgress();
+                        // 若有选中范围，刷新白线和灰色遮盖
+                        if (selectedSegment && typeof selectedSegment.start === 'number' && typeof selectedSegment.end === 'number') {
+                            let startIndex = lyricsData.findIndex(l => l.time === selectedSegment.start);
+                            let endIndex = lyricsData.findIndex(l => l.time === selectedSegment.end);
+                            if (startIndex !== -1) {
+                                addSegmentMarkers(startIndex, endIndex !== -1 ? endIndex : lyricsData.length);
+                            }
+                        }
+                    }
+                } else {
+                    showStatus("节选循环已关闭");
+                    isSegmentLooping = false;
+                    removeSegmentMarkers();
+                }
+            });
+
+            // 修改音频播放结束事件
+            audioPlayer.addEventListener('timeupdate', function() {
+                if (!isDragging) {
+                    const progressPercent = (audioPlayer.currentTime / audioPlayer.duration);
+                    progressBar.style.transform = `scaleX(${progressPercent})`;
+                }
+                
+                // 更新时间显示
+                const currentMinutes = Math.floor(audioPlayer.currentTime / 60);
+                const currentSeconds = Math.floor(audioPlayer.currentTime % 60);
+                const durationMinutes = Math.floor(audioPlayer.duration / 60);
+                const durationSeconds = Math.floor(audioPlayer.duration % 60);
+                
+                timeDisplay.textContent = 
+                    `${currentMinutes}:${currentSeconds < 10 ? '0' : ''}${currentSeconds} / ${durationMinutes}:${durationSeconds < 10 ? '0' : ''}${durationSeconds}`;
+                
+                // 更新悬浮歌词
+                updateFloatingLyrics();
+
+                // 检查是否需要节点循环
+                if (isSegmentLooping && selectedSegment) {
+                    const currentTime = audioPlayer.currentTime;
+
+                    if (currentTime < selectedSegment.start) {
+                        // 当前时间小于节选起始时间，跳转到起始时间
+                        audioPlayer.currentTime = selectedSegment.start;
+                        showStatus(`已跳转到节选起始位置: ${formatTime(selectedSegment.start)}`);
+                    } else if (currentTime >= selectedSegment.end) {
+                        // 已有的逻辑：跳回节选起始时间
+                        audioPlayer.currentTime = selectedSegment.start;
+                        showStatus(`已跳转到节选起始位置: ${formatTime(selectedSegment.start)}`);
+                    }
+                }
+            });
+
+            // 修改歌曲结束事件
+            audioPlayer.addEventListener('ended', function() {
+                if (isSegmentLooping && selectedSegment) {
+                    // 如果是节点循环模式，跳转到选中段的开始
+                    audioPlayer.currentTime = selectedSegment.start;
+                    audioPlayer.play();
+                    showStatus("已跳转到节选开始位置");
+                } else if (!audioPlayer.loop) {
+                    // 如果不是节点循环也不是单曲循环，则停止播放
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    progressBar.style.transform = 'scaleX(0)';
+                    timeDisplay.textContent = `0:00 / ${Math.floor(audioPlayer.duration / 60)}:${Math.floor(audioPlayer.duration % 60)}`;
+                    currentLyricIndex = -1;
+                    updateFloatingLyricsPosition();
+                }
+            });
+
+            // 修改添加节选范围标记函数
+            function addSegmentMarkers(startIndex, endIndex) {
+                removeSegmentMarkers(); // 先移除之前的
+
+                const duration = audioPlayer.duration;
+                if (!duration || lyricsData.length === 0) return;
+
+                const startTime = lyricsData[startIndex].time;
+                // 如果endIndex等于歌词数量，表示到歌曲结束
+                const endTime = (endIndex < lyricsData.length) ? lyricsData[endIndex].time : duration;
+
+                if(startTime > endTime) return;
+
+                const startPercent = (startTime / duration) * 100;
+                const endPercent = (endTime / duration) * 100;
+
+                const progressWidth = segmentProgressContainer.clientWidth;
+
+                // 添加起点标记线到第二进度条
+                const startMarker = document.createElement('div');
+                startMarker.className = 'segment-marker-line';
+                startMarker.style.left = `${startPercent}%`; 
+                segmentProgressContainer.appendChild(startMarker);
+
+                // 添加终点标记线到第二进度条
+                const endMarker = document.createElement('div');
+                endMarker.className = 'segment-marker-line';
+                endMarker.style.left = `${endPercent}%`;
+                segmentProgressContainer.appendChild(endMarker);
+
+                // 添加灰色未播放区域到第二进度条 (起点之前)
+                if (startPercent > 0) {
+                    const unplayedOverlayBefore = document.createElement('div');
+                    unplayedOverlayBefore.className = 'progress-unplayed-overlay';
+                    unplayedOverlayBefore.style.left = '0';
+                    unplayedOverlayBefore.style.width = `${startPercent}%`;
+                    segmentProgressContainer.appendChild(unplayedOverlayBefore);
+                }
+
+                // 添加灰色未播放区域到第二进度条 (终点之后)
+                if (endPercent < 100) {
+                    const unplayedOverlayAfter = document.createElement('div');
+                    unplayedOverlayAfter.className = 'progress-unplayed-overlay';
+                    unplayedOverlayAfter.style.left = `${endPercent}%`;
+                    unplayedOverlayAfter.style.width = `${100 - endPercent}%`;
+                    segmentProgressContainer.appendChild(unplayedOverlayAfter);
+                }
+
+                // 存储选中的节选范围时间
+                selectedSegment = { start: startTime, end: endTime };
+            }
+
+            // 函数：根据文本生成颜色 (HSL)
+            function stringToColor(text) {
+                let hash = 0;
+                for (let i = 0; i < text.length; i++) {
+                    hash = text.charCodeAt(i) + ((hash << 5) - hash);
+                    hash = hash & hash; // Convert to 32bit integer
+                }
+
+                // 将哈希值映射到 HSL 色相 (0-360)
+                const hue = (hash % 360 + 360) % 360; // Ensure hue is positive
+
+                // 设置饱和度和亮度，例如 70% 饱和度和 60% 亮度，以获得较鲜艳的颜色
+                const saturation = '70%';
+                const lightness = '60%';
+
+                return `hsl(${hue}, ${saturation}, ${lightness})`;
+            }
+
+            // 更新节选进度条 (只有当节选循环开启时才调用)
+            function updateSegmentProgress() {
+                if (!segmentLoopBtn.classList.contains('active')) return;
+                segmentProgressBar.innerHTML = '';
+                removeSegmentMarkers();
+                const duration = audioPlayer.duration;
+                if (!duration || lyricsData.length === 0) {
+                    console.warn("无法更新节选进度条：缺少音频时长或歌词数据");
+                    return;
+                }
+                lyricsData.forEach((lyric, index) => {
+                    if (lyric.time >= 0 && lyric.time <= duration) {
+                        const segment = document.createElement('div');
+                        segment.className = 'segment-progress-segment';
+                        segment.dataset.index = index;
+                        segment.style.backgroundColor = stringToColor(lyric.text);
+                        const startPercent = (lyric.time / duration) * 100;
+                        const endTime = (index < lyricsData.length - 1 && lyricsData[index + 1].time >= 0) ? lyricsData[index + 1].time : duration;
+                        const endPercent = ((endTime > lyric.time ? endTime : duration) / duration) * 100; 
+                        const width = endPercent - startPercent;
+                        if (width > 0) {
+                            segment.style.left = `${startPercent}%`;
+                            segment.style.width = `${width}%`;
+                            if (lyric.text && lyric.text.trim() !== '') {
+                                const tooltip = document.createElement('div');
+                                tooltip.className = 'segment-segment-tooltip';
+                                tooltip.textContent = lyric.text;
+                                segment.appendChild(tooltip);
+                                segment.addEventListener('mouseenter', function() {
+                                    tooltip.style.opacity = '1';
+                                });
+                                segment.addEventListener('mouseleave', function() {
+                                    tooltip.style.opacity = '0';
+                                });
+                            }
+                            segmentProgressBar.appendChild(segment);
+                        }
+                    }
+                });
+                updateSegmentMarkersIfNeeded();
+            }
+
+            // 移除节选范围标记线和灰色区域
+            function removeSegmentMarkers() {
+                const existingMarkers = segmentProgressContainer.querySelectorAll('.segment-marker-line, .progress-unplayed-overlay');
+                existingMarkers.forEach(marker => marker.remove());
+            }
+
+            // 添加节选范围标记线和灰色区域
+            function addSegmentMarkers(startIndex, endIndex) {
+                removeSegmentMarkers(); // 先移除之前的
+
+                const duration = audioPlayer.duration;
+                if (!duration || lyricsData.length === 0) return;
+
+                const startTime = lyricsData[startIndex].time;
+                // 如果endIndex等于歌词数量，表示到歌曲结束
+                const endTime = (endIndex < lyricsData.length) ? lyricsData[endIndex].time : duration;
+
+                if(startTime > endTime) return;
+
+                const startPercent = (startTime / duration) * 100;
+                const endPercent = (endTime / duration) * 100;
+
+                const progressWidth = segmentProgressContainer.clientWidth;
+
+                // 添加起点标记线到第二进度条
+                const startMarker = document.createElement('div');
+                startMarker.className = 'segment-marker-line';
+                startMarker.style.left = `${startPercent}%`; 
+                segmentProgressContainer.appendChild(startMarker);
+
+                // 添加终点标记线到第二进度条
+                const endMarker = document.createElement('div');
+                endMarker.className = 'segment-marker-line';
+                endMarker.style.left = `${endPercent}%`;
+                segmentProgressContainer.appendChild(endMarker);
+
+                // 添加灰色未播放区域到第二进度条 (起点之前)
+                if (startPercent > 0) {
+                    const unplayedOverlayBefore = document.createElement('div');
+                    unplayedOverlayBefore.className = 'progress-unplayed-overlay';
+                    unplayedOverlayBefore.style.left = '0';
+                    unplayedOverlayBefore.style.width = `${startPercent}%`;
+                    segmentProgressContainer.appendChild(unplayedOverlayBefore);
+                }
+
+                // 添加灰色未播放区域到第二进度条 (终点之后)
+                if (endPercent < 100) {
+                    const unplayedOverlayAfter = document.createElement('div');
+                    unplayedOverlayAfter.className = 'progress-unplayed-overlay';
+                    unplayedOverlayAfter.style.left = `${endPercent}%`;
+                    unplayedOverlayAfter.style.width = `${100 - endPercent}%`;
+                    segmentProgressContainer.appendChild(unplayedOverlayAfter);
+                }
+
+                // 存储选中的节选范围时间
+                selectedSegment = { start: startTime, end: endTime };
+            }
+
+            // 添加节选范围拖动相关变量
+            let isSegmentDragging = false;
+            let baseIndex = -1; // 基准索引（起点）
+            let dragEndIndex = -1; // 终点索引
+            let selectedSegment = null;
+
+            // 监听节选进度条的鼠标事件
+            segmentProgressBar.addEventListener('mousedown', function(e) {
+                // 确保节选循环开启且有音频和歌词
+                if (!segmentLoopBtn.classList.contains('active') || !audioPlayer.duration || lyricsData.length === 0) return;
+
+                // 查找被点击的分段
+                let targetSegment = e.target.closest('.segment-progress-segment');
+                if (targetSegment) {
+                    isSegmentDragging = true;
+                    baseIndex = parseInt(targetSegment.dataset.index);
+                    // 初始：选中当前分段（起点为当前分段起点，终点为当前分段终点）
+                    dragEndIndex = baseIndex;
+                    // 计算当前分段的终点索引（下一分段或歌曲结束）
+                    const endIndex = (baseIndex < lyricsData.length - 1) ? baseIndex + 1 : lyricsData.length;
+                    addSegmentMarkers(baseIndex, endIndex);
+                    showStatus(`开始选择节选范围: ${formatTime(lyricsData[baseIndex].time)} - ${endIndex === lyricsData.length ? formatTime(audioPlayer.duration) : formatTime(lyricsData[endIndex].time)}`);
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isSegmentDragging) return;
+
+                // 获取鼠标在进度条上的位置
+                const rect = segmentProgressContainer.getBoundingClientRect();
+                const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const percent = clickX / rect.width;
+                const time = percent * audioPlayer.duration;
+
+                // 找到最接近的歌词分段点
+                let newEndIndex = -1;
+                for (let i = 0; i < lyricsData.length; i++) {
+                    if (lyricsData[i].time <= time) {
+                        newEndIndex = i;
+                    } else {
+                        break;
+                    }
+                }
+                
+                // 处理最后一段
+                if (newEndIndex === -1 && lyricsData.length > 0) {
+                    newEndIndex = lyricsData.length - 1;
+                }
+                
+                if (newEndIndex === -1) return;
+
+                // 根据拖动方向调整索引
+                if (newEndIndex < baseIndex) {
+                    // 向左拖动：终点保持不变，起点变为前一分段的起点
+                    // 但根据要求，起点应该变为newEndIndex（即当前鼠标所在分段的起点）
+                    // 终点保持为baseIndex+1（原分段的终点）
+                    const startIndex = newEndIndex;
+                    const endIndex = (baseIndex < lyricsData.length - 1) ? baseIndex + 1 : lyricsData.length;
+                    addSegmentMarkers(startIndex, endIndex);
+                    showStatus(`节选范围: ${formatTime(lyricsData[startIndex].time)} - ${endIndex === lyricsData.length ? formatTime(audioPlayer.duration) : formatTime(lyricsData[endIndex].time)}`);
+                } else {
+                    // 向右拖动：起点保持不变，终点变为newEndIndex所在分段的终点
+                    const startIndex = baseIndex;
+                    const endIndex = (newEndIndex < lyricsData.length - 1) ? newEndIndex + 1 : lyricsData.length;
+                    addSegmentMarkers(startIndex, endIndex);
+                    showStatus(`节选范围: ${formatTime(lyricsData[startIndex].time)} - ${endIndex === lyricsData.length ? formatTime(audioPlayer.duration) : formatTime(lyricsData[endIndex].time)}`);
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (!isSegmentDragging) return;
+                isSegmentDragging = false;
+
+                if (selectedSegment && isSegmentLooping) {
+                    const currentTime = audioPlayer.currentTime;
+
+                    if (currentTime < selectedSegment.start || currentTime >= selectedSegment.end) {
+                        audioPlayer.currentTime = selectedSegment.start;
+                        showStatus(`已选择节选范围并跳转到开始位置: ${formatTime(selectedSegment.start)} - ${formatTime(selectedSegment.end)}`);
+                    } else {
+                        showStatus(`已选择节选范围，当前播放位置在范围内，无需跳转: ${formatTime(selectedSegment.start)} - ${formatTime(selectedSegment.end)}`);
+                    }
+                }
+            });
+
+            // 修改原有的点击事件处理
+            segmentProgressBar.addEventListener('click', function(e) {
+                // 如果正在拖动，不处理点击事件
+                if (isSegmentDragging) return;
+
+                // 确保节选循环开启且有音频和歌词
+                if (!segmentLoopBtn.classList.contains('active') || !audioPlayer.duration || lyricsData.length === 0) return;
+
+                // 查找被点击的分段
+                let targetSegment = e.target.closest('.segment-progress-segment');
+                if (targetSegment) {
+                    const index = parseInt(targetSegment.dataset.index);
+                    addSegmentMarkers(index, index + 1); // 仅设置选中范围，不跳转
+                    showStatus(`已选择节选范围: ${formatTime(lyricsData[index].time)} - ${index < lyricsData.length - 1 ? formatTime(lyricsData[index + 1].time) : formatTime(audioPlayer.duration)}`);
+                }
+            });
+
+            // 歌词时间调整后自动刷新白线和灰色遮盖
+            function updateSegmentMarkersIfNeeded() {
+                if (segmentLoopBtn.classList.contains('active') && selectedSegment && typeof selectedSegment.start === 'number' && typeof selectedSegment.end === 'number') {
+                    let startIndex = lyricsData.findIndex(l => l.time === selectedSegment.start);
+                    let endIndex = lyricsData.findIndex(l => l.time === selectedSegment.end);
+                    if (startIndex !== -1) {
+                        addSegmentMarkers(startIndex, endIndex !== -1 ? endIndex : lyricsData.length);
+                    }
+                }
+            }
+
+            // 添加鼠标状态变量
+            let isMouseOverProgress = false;
+            let isMouseOverSegment = false;
+            let isMouseDown = false;
+
+            // 修改现有的鼠标事件处理
+            progressContainer.addEventListener('mouseenter', function(e) {
+                isMouseOverProgress = true;
+            });
+
+            progressContainer.addEventListener('mouseleave', function(e) {
+                isMouseOverProgress = false;
+            });
+
+            segmentProgressContainer.addEventListener('mouseenter', function(e) {
+                isMouseOverSegment = true;
+                // 阻止事件冒泡
+                e.stopPropagation();
+            });
+
+            segmentProgressContainer.addEventListener('mouseleave', function(e) {
+                isMouseOverSegment = false;
+                // 阻止事件冒泡
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousedown', function() {
+                isMouseDown = true;
+            });
+
+            document.addEventListener('mouseup', function() {
+                isMouseDown = false;
+            });
+
+            // 在现有的拖动事件中添加状态更新
+            progressContainer.addEventListener('mousedown', function(e) {
+                // 如果事件来自节选进度条，不处理
+                if (e.target.closest('.segment-progress-container')) {
+                    return;
+                }
+                isDragging = true;
+            });
+
+            segmentProgressBar.addEventListener('mousedown', function(e) {
+                isSegmentDragging = true;
+                // 阻止事件冒泡
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    // 原有的播放进度条拖动逻辑
+                }
+                if (isSegmentDragging) {
+                    // 原有的节选进度条拖动逻辑
+                }
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (isDragging) {
+                    isDragging = false;
+                }
+                if (isSegmentDragging) {
+                    isSegmentDragging = false;
+                }
+            });
+
+            // 在音频播放时更新状态
+            audioPlayer.addEventListener('timeupdate', function() {
+                // ... existing code ...
+            });
+
+            // 在节选循环状态改变时更新
+            segmentLoopBtn.addEventListener('click', function() {
+                // ... existing code ...
+            });
+
+            // ... existing code ...
+            fileDropArea.addEventListener('dragenter', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // 判断拖入的是否为文件
+                if (e.dataTransfer.types.includes('Files')) {
+                    this.classList.add('drag-over');
+                  //  this.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+            // ... existing code ...
+            fileDropArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            // ... existing code ...
+            fileDropArea.addEventListener('dragstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+            // ... existing code ...
+            fileDropArea.addEventListener('dragend', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+    </script>
+</body>
+</html>
