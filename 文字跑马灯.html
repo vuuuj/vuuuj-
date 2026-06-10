@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文字跑马灯</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --text-color: #ffffff;
+            --font-size: 120px;
+            --font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            --text-align: center;
+            --panel-bg: #16213e;
+            --input-bg: #0f0f1a;
+            --input-text: #ffffff;
+            --border-color: #2a2a4a;
+            --accent: #4a9eff;
+            --accent-hover: #3a8eef;
+            --slider-track: #2a2a4a;
+            --card-bg: #1e2a3a;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+            --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.4);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            display: flex;
+            background: linear-gradient(135deg, #0a0a14 0%, #0f0f1a 100%);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            color: #c0c8d0;
+        }
+
+        input, textarea, select {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            grid-template-rows: 1fr 56px;
+            height: 100vh;
+            width: 100vw;
+            gap: 1px;
+            background: linear-gradient(to bottom, #0a0a14, #0f0f1a);
+        }
+
+        /* ===== 显示区域 ===== */
+        .display-area {
+            grid-row: 1 / 2;
+            grid-column: 1 / 2;
+            background: linear-gradient(135deg, var(--bg-color) 0%, rgba(26, 26, 46, 0.8) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+            transition: background-color 0.5s ease, background-image 0.5s ease;
+            cursor: default;
+            border-radius: 0;
+        }
+
+        .text-scroll-wrapper {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding: 40px;
+        }
+
+        .text-scroll-inner {
+            display: flex;
+            align-items: center;
+            height: 100%;
+            white-space: nowrap;
+            will-change: transform;
+        }
+
+        .display-text {
+            color: var(--text-color);
+            font-size: var(--font-size);
+            font-family: var(--font-family);
+            text-align: var(--text-align);
+            white-space: nowrap;
+            line-height: 1;
+            display: inline-block;
+            letter-spacing: 0.02em;
+            transition: color 0.5s ease, font-size 0.3s ease, font-family 0.3s ease;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-weight: 600;
+        }
+
+        .display-text.placeholder {
+            opacity: 0.3;
+            font-style: italic;
+            font-weight: 400;
+        }
+
+        /* ===== 控制面板 ===== */
+        .control-panel {
+            grid-row: 1 / 3;
+            grid-column: 2 / 3;
+            background: linear-gradient(180deg, var(--panel-bg) 0%, #0f1728 100%);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow-y: auto;
+            border-left: 1px solid var(--border-color);
+            z-index: 10;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+            border-radius: 0;
+            box-shadow: inset -2px 0 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .control-panel::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .control-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb {
+            background: rgba(74, 158, 255, 0.2);
+            border-radius: 3px;
+            transition: background 0.3s;
+        }
+
+        .control-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(74, 158, 255, 0.4);
+        }
+
+        .panel-group {
+            background: linear-gradient(135deg, rgba(30, 42, 58, 0.6) 0%, rgba(24, 36, 48, 0.4) 100%);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            border: 1px solid rgba(74, 158, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .panel-group:hover {
+            border-color: rgba(74, 158, 255, 0.2);
+            background: linear-gradient(135deg, rgba(30, 42, 58, 0.8) 0%, rgba(24, 36, 48, 0.6) 100%);
+        }
+
+        .panel-group-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(74, 158, 255, 0.7);
+            margin-bottom: 8px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ===== 颜色相关 ===== */
+        .color-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .color-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .color-row label {
+            font-size: 12px;
+            color: #a0aab8;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-weight: 600;
+            min-width: 50px;
+        }
+
+        .color-swatch-btn {
+            width: 40px;
+            height: 32px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            padding: 3px;
+            background: transparent;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .color-swatch-btn:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.25);
+        }
+
+        .color-swatch-btn:active {
+            transform: scale(0.95);
+        }
+
+        .color-swatch-inner {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 3px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-value-display {
+            font-size: 11px;
+            color: #8899aa;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            flex: 1;
+            min-width: 0;
+            max-width: 76px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            padding: 4px 6px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .color-value-display:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #aabbcc;
+        }
+
+        .color-value-display.editable {
+            color: var(--accent);
+            background: var(--input-bg);
+            border-color: var(--accent);
+            cursor: text;
+        }
+
+        .color-nav-btns {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .color-nav-btn {
+            width: 22px;
+            height: 22px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+            transition: all 0.2s;
+            padding: 0;
+            background: rgba(30, 42, 58, 0.5);
+        }
+
+        .color-nav-btn:hover:not(:disabled) {
+            transform: scale(1.1);
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(30, 42, 58, 0.8);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-nav-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .color-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            background: rgba(0, 0, 0, 0.2);
+            color: #666;
+            text-shadow: none;
+        }
+
+        /* ===== 暂停按钮 ===== */
+        .pause-btn {
+            width: 22px;
+            height: 22px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+            transition: all 0.2s;
+            padding: 0;
+            background: rgba(30, 42, 58, 0.5);
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .pause-btn:hover {
+            transform: scale(1.1);
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(30, 42, 58, 0.8);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .pause-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* ===== 速度行布局 ===== */
+        .speed-value-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .unit-label {
+            font-size: 10px;
+            color: #667;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        /* ===== 预设颜色 ===== */
+        .preset-colors {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .preset-btn {
+            height: 36px;
+            border-radius: var(--radius-md);
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #333 0%, #222 100%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
+        }
+
+        .preset-btn.preset-custom {
+            font-size: 16px;
+            font-weight: 900;
+            font-family: 'Helvetica Neue', 'Arial Black', sans-serif;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .preset-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .preset-btn:active {
+            transform: scale(0.93);
+        }
+
+        .preset-btn.active {
+            border-color: #fff;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25), 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ===== 滑块 ===== */
+        .slider-group {
+            margin-bottom: 10px;
+        }
+
+        .slider-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .slider-label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+        }
+
+        .slider-label-row label {
+            font-size: 12px;
+            color: #a0aab8;
+            font-weight: 600;
+        }
+
+        .slider-value-input {
+            font-size: 11px;
+            color: #8899aa;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            padding: 4px 6px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s;
+            width: 50px;
+            text-align: center;
+        }
+
+        .slider-value-input:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #aabbcc;
+        }
+
+        .slider-value-input.editable {
+            color: var(--accent);
+            background: var(--input-bg);
+            border-color: var(--accent);
+            cursor: text;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--slider-track);
+            outline: none;
+            cursor: pointer;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent) 0%, #3a8eef 100%);
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(74, 158, 255, 0.4);
+            transition: all 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.6);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent) 0%, #3a8eef 100%);
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(74, 158, 255, 0.4);
+            transition: all 0.2s;
+        }
+
+        input[type="range"]::-moz-range-track {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+        }
+
+        /* ===== 下拉选择 ===== */
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: linear-gradient(135deg, rgba(15, 15, 26, 0.8) 0%, rgba(20, 20, 40, 0.6) 100%);
+            color: #e0e0e0;
+            font-size: 13px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%234a9eff'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        select:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.15);
+        }
+
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+        }
+
+        select option {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 8px 12px;
+        }
+
+        /* ===== 按钮 ===== */
+        .btn-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            background: linear-gradient(135deg, rgba(30, 42, 58, 0.6) 0%, rgba(24, 36, 48, 0.4) 100%);
+            color: #a0aab8;
+            flex: 1;
+            min-width: 0;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, rgba(40, 52, 68, 0.8) 0%, rgba(34, 46, 58, 0.6) 100%);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        /* ===== 输入栏 ===== */
+        .input-bar {
+            grid-row: 2 / 3;
+            grid-column: 1 / 2;
+            display: flex;
+            align-items: center;
+            background: linear-gradient(to right, rgba(15, 15, 26, 0.9), rgba(20, 20, 40, 0.8));
+            border-top: 1px solid var(--border-color);
+            padding: 0 18px;
+            gap: 12px;
+            z-index: 10;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .input-bar input {
+            flex: 1;
+            height: 40px;
+            padding: 0 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: linear-gradient(135deg, rgba(17, 17, 34, 0.8) 0%, rgba(20, 20, 40, 0.6) 100%);
+            color: var(--input-text);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            min-width: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .input-bar input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(135deg, rgba(20, 20, 40, 0.9) 0%, rgba(25, 25, 50, 0.8) 100%);
+        }
+
+        .input-bar input::placeholder {
+            color: #555;
+            font-style: italic;
+            opacity: 0.7;
+        }
+
+        .char-count {
+            font-size: 12px;
+            color: #667;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            min-width: 40px;
+            text-align: center;
+            font-weight: 600;
+            transition: color 0.3s;
+        }
+
+        .btn-clear {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.05);
+            color: #889;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-clear:hover {
+            color: #fff;
+            background: rgba(74, 158, 255, 0.15);
+            border-color: var(--accent);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.2);
+        }
+
+        .btn-clear:active {
+            transform: scale(0.95);
+        }
+
+        /* ===== Toast 提示 ===== */
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: linear-gradient(135deg, rgba(40, 40, 60, 0.95) 0%, rgba(30, 30, 50, 0.9) 100%);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 1px rgba(74, 158, 255, 0.3) inset;
+            border: 1px solid rgba(74, 158, 255, 0.2);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ===== 颜色选择器 ===== */
+        .color-picker-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1500;
+            display: none;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+        }
+
+        .color-picker-overlay.open {
+            display: block;
+        }
+
+        .color-picker-panel {
+            position: fixed;
+            background: linear-gradient(135deg, #1e2a3a 0%, #16213e 100%);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: var(--radius-lg);
+            padding: 16px;
+            width: 280px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+            z-index: 1501;
+            backdrop-filter: blur(10px);
+        }
+
+        .color-picker-title {
+            font-size: 13px;
+            color: #c0c8d0;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        .color-picker-format-tabs {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: var(--radius-md);
+        }
+
+        .color-picker-format-tab {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #8899aa;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .color-picker-format-tab:hover {
+            background: rgba(74, 158, 255, 0.1);
+            color: #aabbcc;
+        }
+
+        .color-picker-format-tab.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .color-picker-sv {
+            position: relative;
+            width: 100%;
+            height: 140px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            cursor: crosshair;
+            touch-action: none;
+            border: 1px solid rgba(74, 158, 255, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-picker-sv canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .color-picker-cursor {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
+        .color-picker-hue-wrap {
+            position: relative;
+            height: 12px;
+            margin-top: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            touch-action: none;
+            border: 1px solid rgba(74, 158, 255, 0.15);
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-picker-hue-wrap canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .color-picker-hue-thumb {
+            position: absolute;
+            top: 50%;
+            width: 6px;
+            height: 16px;
+            background: #fff;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .color-picker-preview-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .color-picker-preview {
+            width: 36px;
+            height: 28px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .color-picker-input-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+
+        .color-picker-hex-input,
+        .color-picker-rgb-input,
+        .color-picker-hsl-input {
+            flex: 1;
+            height: 28px;
+            padding: 0 10px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.2);
+            color: #fff;
+            font-family: 'SF Mono', 'Consolas', monospace;
+            font-size: 12px;
+            outline: none;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .color-picker-hex-input:focus,
+        .color-picker-rgb-input:focus,
+        .color-picker-hsl-input:focus {
+            border-color: var(--accent);
+            background: rgba(74, 158, 255, 0.1);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        .color-picker-format-hint {
+            font-size: 10px;
+            color: #667;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
+        .color-picker-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .color-picker-actions button {
+            flex: 1;
+            padding: 8px;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .color-picker-cancel {
+            background: rgba(255, 255, 255, 0.05);
+            color: #8899aa;
+        }
+
+        .color-picker-cancel:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: #667;
+        }
+
+        .color-picker-confirm {
+            background: linear-gradient(135deg, var(--accent) 0%, #3a8eef 100%);
+            color: #fff;
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+        }
+
+        .color-picker-confirm:hover {
+            box-shadow: 0 6px 16px rgba(74, 158, 255, 0.4);
+            transform: translateY(-1px);
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 1fr 260px;
+            }
+            .control-panel {
+                padding: 14px;
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: 1fr auto 48px;
+            }
+            .display-area {
+                grid-row: 1 / 2;
+                padding: 20px;
+            }
+            .control-panel {
+                grid-row: 2 / 3;
+                grid-column: 1 / 2;
+                flex-direction: row;
+                flex-wrap: wrap;
+                max-height: 150px;
+                margin: 0;
+                border-radius: 0;
+                border-left: none;
+                border-top: 1px solid var(--border-color);
+                gap: 8px;
+                padding: 12px;
+            }
+            .panel-group {
+                flex: 1 1 auto;
+                min-width: 130px;
+                padding: 8px 10px;
+                margin-bottom: 0;
+            }
+            .preset-colors {
+                gap: 4px;
+            }
+            .preset-btn {
+                height: 28px;
+                font-size: 12px;
+            }
+            .input-bar {
+                grid-row: 3 / 4;
+                padding: 0 14px;
+                gap: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .control-panel {
+                max-height: 120px;
+                padding: 10px;
+                gap: 6px;
+            }
+            .panel-group {
+                min-width: 100px;
+                padding: 6px 8px;
+            }
+            .preset-colors {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="display-area" id="displayArea" title="全屏显示">
+        <div class="text-scroll-wrapper" id="textScrollWrapper">
+            <div class="text-scroll-inner" id="textScrollInner"></div>
+        </div>
+    </div>
+
+    <aside class="control-panel" id="controlPanel">
+        <!-- 预设配色 -->
+        <div class="panel-group">
+            <div class="panel-group-label">🎯 预设配色</div>
+            <div class="preset-colors" id="presetColors">
+                <button type="button" class="preset-btn" data-bg="#1a1a2e" data-text="#ffffff" style="background:#1a1a2e;" title="深蓝 · 白字">🌙</button>
+                <button type="button" class="preset-btn" data-bg="#ffffff" data-text="#1a1a1a" style="background:#ffffff;" title="纯白 · 黑字">☀️</button>
+                <button type="button" class="preset-btn" data-bg="#0d0d0d" data-text="#00ff88" style="background:#0d0d0d;" title="纯黑 · 荧光绿">💚</button>
+                <button type="button" class="preset-btn" data-bg="#1a0033" data-text="#ffcc00" style="background:#1a0033;" title="深紫 · 金黄">✨</button>
+                <button type="button" class="preset-btn" data-bg="#0a1a0a" data-text="#8fff8f" style="background:#0a1a0a;" title="暗绿 · 亮绿">🌿</button>
+                <button type="button" class="preset-btn" data-bg="#1a0a0a" data-text="#ff6b6b" style="background:#1a0a0a;" title="暗红 · 暖红">❤️</button>
+                <button type="button" class="preset-btn" data-bg="#0a0a2e" data-text="#64d8ff" style="background:#0a0a2e;" title="深海蓝 · 天蓝">🌊</button>
+                <button type="button" class="preset-btn" data-bg="#2e1a0a" data-text="#ffb366" style="background:#2e1a0a;" title="深棕 · 暖橙">🔥</button>
+                <button type="button" class="preset-btn preset-custom" data-index="0" style="background:#1a1a2e;color:#fff;" title="自定义 A（长按保存）">A</button>
+                <button type="button" class="preset-btn preset-custom" data-index="1" style="background:#1a1a2e;color:#fff;" title="自定义 B">B</button>
+                <button type="button" class="preset-btn preset-custom" data-index="2" style="background:#1a1a2e;color:#fff;" title="自定义 C">C</button>
+                <button type="button" class="preset-btn preset-custom" data-index="3" style="background:#1a1a2e;color:#fff;" title="自定义 D">D</button>
+            </div>
+        </div>
+
+        <!-- 自定义颜色 -->
+        <div class="panel-group">
+            <div class="panel-group-label">🎨 自定义颜色</div>
+            <div class="color-row">
+                <label>背景</label>
+                <button type="button" class="color-swatch-btn" id="bgSwatchBtn" title="打开选色器">
+                    <span class="color-swatch-inner" id="bgSwatchInner"></span>
+                </button>
+                <input type="text" class="color-value-display" id="bgColorValue" readonly title="单击编辑">
+                <div class="color-nav-btns">
+                    <button type="button" class="color-nav-btn" id="bgColorBack" title="上一个颜色">&lt;</button>
+                    <button type="button" class="color-nav-btn" id="bgColorForward" title="下一个颜色">&gt;</button>
+                </div>
+            </div>
+            <div class="color-row">
+                <label>文字</label>
+                <button type="button" class="color-swatch-btn" id="textSwatchBtn" title="打开选色器">
+                    <span class="color-swatch-inner" id="textSwatchInner"></span>
+                </button>
+                <input type="text" class="color-value-display" id="textColorValue" readonly title="单击编辑">
+                <div class="color-nav-btns">
+                    <button type="button" class="color-nav-btn" id="textColorBack" title="上一个颜色">&lt;</button>
+                    <button type="button" class="color-nav-btn" id="textColorForward" title="下一个颜色">&gt;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 字体大小 -->
+        <div class="panel-group">
+            <div class="panel-group-label">📐 字体大小</div>
+            <div class="slider-group">
+                <div class="slider-label-row">
+                    <label>字号</label>
+                    <div class="speed-value-row">
+                        <input type="text" class="slider-value-input" id="fontSizeInput" value="120" maxlength="3" title="单击编辑">
+                        <span class="unit-label">px</span>
+                    </div>
+                </div>
+                <input type="range" id="fontSizeSlider" min="20" max="800" value="120" step="5">
+            </div>
+        </div>
+
+        <!-- 循环滚动 -->
+        <div class="panel-group">
+            <div class="panel-group-label">🔁 循环滚动</div>
+            <div class="slider-group">
+                <div class="slider-label-row">
+                    <label>速度</label>
+                    <div class="speed-value-row">
+                        <input type="text" class="slider-value-input" id="scrollSpeedInput" value="0" maxlength="4" title="单击编辑" style="width:48px;">
+                        <span class="unit-label">px/s</span>
+                        <button type="button" class="pause-btn" id="pauseBtn" title="播放/暂停" style="display:none;">
+                            <span id="pauseBtnIcon">▶</span>
+                        </button>
+                    </div>
+                </div>
+                <input type="range" id="scrollSpeedSlider" min="0" max="200" value="0" step="1">
+            </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="panel-group">
+            <div class="panel-group-label">⚡ 快捷操作</div>
+            <div class="btn-row">
+                <button type="button" class="btn" id="btnFullscreen">📺 全屏</button>
+                <button type="button" class="btn" id="btnCopyText">📋 复制</button>
+                <button type="button" class="btn" id="btnResetAll">🔄 重置</button>
+            </div>
+        </div>
+
+        <!-- 字体选择 -->
+        <div class="panel-group">
+            <div class="panel-group-label">🔤 字体</div>
+            <select id="fontFamilySelect">
+                <option value="'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif">系统默认（苹方/雅黑）</option>
+                <option value="'Noto Serif SC', 'STSong', 'SimSun', 'Songti SC', serif">宋体/衬线</option>
+                <option value="'KaiTi', 'STKaiti', 'KaiTi SC', serif">楷体</option>
+                <option value="'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace">等宽字体</option>
+                <option value="'ZCOOL KuaiLe', 'YouYuan', '华文彩云', cursive">可爱/手写风</option>
+            </select>
+        </div>
+    </aside>
+
+    <!-- 输入栏 -->
+    <div class="input-bar">
+        <input type="text" id="textInput" placeholder="在此输入文字，上方将放大显示..." maxlength="500" autofocus>
+        <span class="char-count" id="charCount">0</span>
+        <button type="button" class="btn-clear" id="btnClear" title="清空输入">✕</button>
+    </div>
+</div>
+
+<!-- Toast提示 -->
+<div class="toast" id="toast"></div>
+
+<!-- 颜色选择器 -->
+<div class="color-picker-overlay" id="colorPickerOverlay">
+    <div class="color-picker-panel" id="colorPickerPanel">
+        <div class="color-picker-title" id="colorPickerTitle">选择颜色</div>
+        
+        <div class="color-picker-format-tabs">
+            <button type="button" class="color-picker-format-tab active" data-format="hex">HEX</button>
+            <button type="button" class="color-picker-format-tab" data-format="rgb">RGB</button>
+            <button type="button" class="color-picker-format-tab" data-format="hsl">HSL</button>
+        </div>
+
+        <div class="color-picker-sv" id="colorPickerSv">
+            <canvas id="svCanvas" width="248" height="140"></canvas>
+            <div class="color-picker-cursor" id="svCursor"></div>
+        </div>
+        <div class="color-picker-hue-wrap" id="colorPickerHue">
+            <canvas id="hueCanvas" width="248" height="12"></canvas>
+            <div class="color-picker-hue-thumb" id="hueThumb"></div>
+        </div>
+        <div class="color-picker-preview-row">
+            <div class="color-picker-preview" id="pickerPreview"></div>
+            <div class="color-picker-input-row">
+                <input type="text" class="color-picker-hex-input" id="pickerHexInput" maxlength="7" spellcheck="false" placeholder="#000000">
+                <input type="text" class="color-picker-rgb-input" id="pickerRgbInput" maxlength="20" spellcheck="false" placeholder="rgb(0,0,0)" style="display:none;">
+                <input type="text" class="color-picker-hsl-input" id="pickerHslInput" maxlength="20" spellcheck="false" placeholder="hsl(0,0%,0%)" style="display:none;">
+            </div>
+        </div>
+        <div class="color-picker-format-hint">拖拽即时预览 · 支持多种格式</div>
+        <div class="color-picker-actions">
+            <button type="button" class="color-picker-cancel" id="pickerCancel">取消</button>
+            <button type="button" class="color-picker-confirm" id="pickerConfirm">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const FORMATS = ['hex', 'rgb', 'hsl'];
+    const FORMAT_LABELS = { hex: 'HEX', rgb: 'RGB', hsl: 'HSL' };
+
+    const ColorUtils = {
+        clamp(n, min, max) { return Math.max(min, Math.min(max, n)); },
+
+        normalizeHex(hex) {
+            if (!hex) return null;
+            const m = hex.trim().toLowerCase().match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/);
+            if (!m) return null;
+            let h = m[1];
+            if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+            return '#' + h;
+        },
+
+        hexToRgb(hex) {
+            const n = this.normalizeHex(hex);
+            if (!n) return null;
+            return {
+                r: parseInt(n.slice(1, 3), 16),
+                g: parseInt(n.slice(3, 5), 16),
+                b: parseInt(n.slice(5, 7), 16),
+            };
+        },
+
+        rgbToHex(r, g, b) {
+            const to = v => this.clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0');
+            return '#' + to(r) + to(g) + to(b);
+        },
+
+        rgbToHsv(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+            let h = 0, s = max === 0 ? 0 : d / max, v = max;
+            if (d !== 0) {
+                switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                    case g: h = ((b - r) / d + 2) / 6; break;
+                    default: h = ((r - g) / d + 4) / 6;
+                }
+            }
+            return { h: h * 360, s: s * 100, v: v * 100 };
+        },
+
+        hsvToRgb(h, s, v) {
+            h = ((h % 360) + 360) % 360;
+            s = this.clamp(s, 0, 100) / 100;
+            v = this.clamp(v, 0, 100) / 100;
+            const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c;
+            let rp = 0, gp = 0, bp = 0;
+            if (h < 60) { rp = c; gp = x; }
+            else if (h < 120) { rp = x; gp = c; }
+            else if (h < 180) { gp = c; bp = x; }
+            else if (h < 240) { gp = x; bp = c; }
+            else if (h < 300) { rp = x; bp = c; }
+            else { rp = c; bp = x; }
+            return {
+                r: Math.round((rp + m) * 255),
+                g: Math.round((gp + m) * 255),
+                b: Math.round((bp + m) * 255),
+            };
+        },
+
+        hsvToHex(h, s, v) {
+            const rgb = this.hsvToRgb(h, s, v);
+            return this.rgbToHex(rgb.r, rgb.g, rgb.b);
+        },
+
+        rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+            if (max === min) return { h: 0, s: 0, l: l * 100 };
+            const d = max - min;
+            const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            let h = 0;
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                default: h = ((r - g) / d + 4) / 6;
+            }
+            return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+        },
+
+        format(hex, mode) {
+            const rgb = this.hexToRgb(hex);
+            if (!rgb) return hex;
+            if (mode === 'hex') return hex;
+            if (mode === 'rgb') return 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')';
+            const hsl = this.rgbToHsl(rgb.r, rgb.g, rgb.b);
+            return 'hsl(' + hsl.h + ',' + hsl.s + '%,' + hsl.l + '%)';
+        },
+
+        parseColor(str) {
+            const s = str.trim();
+            let m = s.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+            if (m) return this.normalizeHex('#' + m[1]);
+            m = s.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+            if (m) return this.rgbToHex(+m[1], +m[2], +m[3]);
+            m = s.match(/^hsl\s*\(\s*(\d+)\s*,\s*(\d+)%?\s*,\s*(\d+)%?\s*\)$/i);
+            if (m) {
+                const h = +m[1], sat = +m[2], lit = +m[3];
+                const c = (1 - Math.abs(2 * lit / 100 - 1)) * sat / 100;
+                const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+                const m0 = lit / 100 - c / 2;
+                let rp = 0, gp = 0, bp = 0;
+                if (h < 60) { rp = c; gp = x; }
+                else if (h < 120) { rp = x; gp = c; }
+                else if (h < 180) { gp = c; bp = x; }
+                else if (h < 240) { gp = x; bp = c; }
+                else if (h < 300) { rp = x; bp = c; }
+                else { rp = c; bp = x; }
+                return this.rgbToHex((rp + m0) * 255, (gp + m0) * 255, (bp + m0) * 255);
+            }
+            return null;
+        },
+
+        contrastText(hex) {
+            const rgb = this.hexToRgb(hex);
+            if (!rgb) return '#fff';
+            const y = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+            return y > 140 ? '#111' : '#fff';
+        },
+    };
+
+    class ColorHistory {
+        constructor(color) {
+            this.stack = [color];
+            this.index = 0;
+        }
+        get current() { return this.stack[this.index]; }
+        get canBack() { return this.index > 0; }
+        get canForward() { return this.index < this.stack.length - 1; }
+        get backTarget() { return this.canBack ? this.stack[this.index - 1] : null; }
+        get forwardTarget() { return this.canForward ? this.stack[this.index + 1] : null; }
+        push(color) {
+            if (color === this.current) return;
+            this.stack = this.stack.slice(0, this.index + 1);
+            this.stack.push(color);
+            this.index = this.stack.length - 1;
+        }
+        back() {
+            if (!this.canBack) return null;
+            this.index--;
+            return this.current;
+        }
+        forward() {
+            if (!this.canForward) return null;
+            this.index++;
+            return this.current;
+        }
+        reset(color) {
+            this.stack = [color];
+            this.index = 0;
+        }
+    }
+
+    class CustomColorPicker {
+        constructor(overlayEl) {
+            this.overlay = overlayEl;
+            this.panel = overlayEl.querySelector('#colorPickerPanel');
+            this.titleEl = overlayEl.querySelector('#colorPickerTitle');
+            this.svWrap = overlayEl.querySelector('#colorPickerSv');
+            this.svCanvas = overlayEl.querySelector('#svCanvas');
+            this.svCtx = this.svCanvas.getContext('2d');
+            this.svCursor = overlayEl.querySelector('#svCursor');
+            this.hueWrap = overlayEl.querySelector('#colorPickerHue');
+            this.hueCanvas = overlayEl.querySelector('#hueCanvas');
+            this.hueCtx = this.hueCanvas.getContext('2d');
+            this.hueThumb = overlayEl.querySelector('#hueThumb');
+            this.preview = overlayEl.querySelector('#pickerPreview');
+            this.hexInput = overlayEl.querySelector('#pickerHexInput');
+            this.rgbInput = overlayEl.querySelector('#pickerRgbInput');
+            this.hslInput = overlayEl.querySelector('#pickerHslInput');
+            this.formatTabs = overlayEl.querySelectorAll('.color-picker-format-tab');
+            this.cancelBtn = overlayEl.querySelector('#pickerCancel');
+            this.confirmBtn = overlayEl.querySelector('#pickerConfirm');
+
+            this.h = 0; this.s = 0; this.v = 100;
+            this.currentFormat = 'hex';
+            this.dragging = null;
+            this.anchorEl = null;
+            this.startColor = null;
+            this.onLive = null;
+            this.onConfirm = null;
+
+            this.drawHueBar();
+            this.bindEvents();
+        }
+
+        drawHueBar() {
+            const w = this.hueCanvas.width, h = this.hueCanvas.height;
+            const grad = this.hueCtx.createLinearGradient(0, 0, w, 0);
+            for (let i = 0; i <= 6; i++) grad.addColorStop(i / 6, ColorUtils.hsvToHex(i * 60, 100, 100));
+            this.hueCtx.fillStyle = grad;
+            this.hueCtx.fillRect(0, 0, w, h);
+        }
+
+        drawSvPlane() {
+            const w = this.svCanvas.width, h = this.svCanvas.height;
+            this.svCtx.fillStyle = ColorUtils.hsvToHex(this.h, 100, 100);
+            this.svCtx.fillRect(0, 0, w, h);
+            const white = this.svCtx.createLinearGradient(0, 0, w, 0);
+            white.addColorStop(0, '#fff');
+            white.addColorStop(1, 'rgba(255,255,255,0)');
+            this.svCtx.fillStyle = white;
+            this.svCtx.fillRect(0, 0, w, h);
+            const black = this.svCtx.createLinearGradient(0, 0, 0, h);
+            black.addColorStop(0, 'rgba(0,0,0,0)');
+            black.addColorStop(1, '#000');
+            this.svCtx.fillStyle = black;
+            this.svCtx.fillRect(0, 0, w, h);
+        }
+
+        getHex() { return ColorUtils.hsvToHex(this.h, this.s, this.v); }
+
+        setFromHex(hex) {
+            const rgb = ColorUtils.hexToRgb(hex);
+            if (!rgb) return;
+            const hsv = ColorUtils.rgbToHsv(rgb.r, rgb.g, rgb.b);
+            this.h = hsv.h; this.s = hsv.s; this.v = hsv.v;
+            this.updateUI(false);
+        }
+
+        updateUI(notifyLive) {
+            this.drawSvPlane();
+            const hex = this.getHex();
+            this.preview.style.background = hex;
+            
+            this.hexInput.value = hex;
+            const rgb = ColorUtils.hexToRgb(hex);
+            this.rgbInput.value = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+            const hsl = ColorUtils.rgbToHsl(rgb.r, rgb.g, rgb.b);
+            this.hslInput.value = `hsl(${hsl.h},${hsl.s}%,${hsl.l}%)`;
+            
+            const sw = this.svCanvas.width, sh = this.svCanvas.height;
+            this.svCursor.style.left = (this.s / 100 * sw) + 'px';
+            this.svCursor.style.top = ((100 - this.v) / 100 * sh) + 'px';
+            this.hueThumb.style.left = (this.h / 360 * this.hueCanvas.width) + 'px';
+            
+            if (notifyLive !== false && this.onLive) this.onLive(hex);
+        }
+
+        setFormat(fmt) {
+            this.currentFormat = fmt;
+            this.formatTabs.forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.format === fmt);
+            });
+            this.hexInput.style.display = fmt === 'hex' ? '' : 'none';
+            this.rgbInput.style.display = fmt === 'rgb' ? '' : 'none';
+            this.hslInput.style.display = fmt === 'hsl' ? '' : 'none';
+        }
+
+        positionPanel(anchorEl) {
+            this.panel.style.visibility = 'hidden';
+            this.overlay.classList.add('open');
+            const rect = anchorEl.getBoundingClientRect();
+            const pw = this.panel.offsetWidth;
+            const ph = this.panel.offsetHeight;
+            let left = rect.left - pw - 10;
+            let top = rect.top;
+            if (left < 8) left = rect.right + 10;
+            if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+            if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8;
+            if (top < 8) top = 8;
+            this.panel.style.left = left + 'px';
+            this.panel.style.top = top + 'px';
+            this.panel.style.visibility = 'visible';
+        }
+
+        open(anchorEl, initialHex, title, onLive, onConfirm) {
+            this.anchorEl = anchorEl;
+            this.startColor = initialHex;
+            this.onLive = onLive;
+            this.onConfirm = onConfirm;
+            this.titleEl.textContent = title;
+            this.setFromHex(initialHex);
+            this.setFormat('hex');
+            this.positionPanel(anchorEl);
+        }
+
+        close(revert) {
+            if (revert && this.onLive && this.startColor) this.onLive(this.startColor);
+            this.overlay.classList.remove('open');
+            this.dragging = null;
+            this.onLive = null;
+            this.onConfirm = null;
+        }
+
+        confirm() {
+            const hex = this.getHex();
+            if (this.onConfirm) this.onConfirm(hex);
+            this.startColor = hex;
+            this.close(false);
+        }
+
+        bindEvents() {
+            this.formatTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    this.setFormat(tab.dataset.format);
+                });
+            });
+
+            this.cancelBtn.addEventListener('click', () => this.close(true));
+            this.confirmBtn.addEventListener('click', () => this.confirm());
+            this.overlay.addEventListener('mousedown', (e) => {
+                if (e.target === this.overlay) this.close(true);
+            });
+            this.panel.addEventListener('contextmenu', e => e.preventDefault());
+
+            [this.hexInput, this.rgbInput, this.hslInput].forEach(input => {
+                input.addEventListener('change', () => {
+                    const hex = ColorUtils.parseColor(input.value);
+                    if (hex) { this.setFromHex(hex); this.updateUI(true); }
+                    else this.updateUI(false);
+                });
+            });
+
+            this.bindDrag(this.svWrap, (x, y, rect) => {
+                this.s = ColorUtils.clamp(x / rect.width * 100, 0, 100);
+                this.v = ColorUtils.clamp(100 - y / rect.height * 100, 0, 100);
+                this.updateUI(true);
+            });
+
+            this.bindDrag(this.hueWrap, (x, _y, rect) => {
+                this.h = ColorUtils.clamp(x / rect.width * 360, 0, 360);
+                this.updateUI(true);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (!this.overlay.classList.contains('open')) return;
+                if (e.key === 'Escape') this.close(true);
+                if (e.key === 'Enter') this.confirm();
+            });
+        }
+
+        bindDrag(el, onMove) {
+            const start = (clientX, clientY) => {
+                const rect = el.getBoundingClientRect();
+                onMove(clientX - rect.left, clientY - rect.top, rect);
+                this.dragging = { el, onMove };
+            };
+            el.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                start(e.clientX, e.clientY);
+            });
+            el.addEventListener('touchstart', (e) => {
+                const t = e.touches[0];
+                start(t.clientX, t.clientY);
+            }, { passive: true });
+
+            const move = (cx, cy) => {
+                if (!this.dragging || this.dragging.el !== el) return;
+                const rect = el.getBoundingClientRect();
+                this.dragging.onMove(cx - rect.left, cy - rect.top, rect);
+            };
+            document.addEventListener('mousemove', (e) => move(e.clientX, e.clientY));
+            document.addEventListener('touchmove', (e) => {
+                if (!this.dragging) return;
+                const t = e.touches[0];
+                move(t.clientX, t.clientY);
+            }, { passive: true });
+            const stop = () => { this.dragging = null; };
+            document.addEventListener('mouseup', stop);
+            document.addEventListener('touchend', stop);
+        }
+    }
+
+    const DEFAULTS = {
+        bgColor: '#1a1a2e',
+        textColor: '#ffffff',
+        fontSize: 120,
+        fontFamily: "'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif",
+        textAlign: 'center',
+        text: '',
+    };
+
+    const els = {
+        displayArea: document.getElementById('displayArea'),
+        textScrollWrapper: document.getElementById('textScrollWrapper'),
+        textScrollInner: document.getElementById('textScrollInner'),
+        textInput: document.getElementById('textInput'),
+        charCount: document.getElementById('charCount'),
+        btnClear: document.getElementById('btnClear'),
+        bgSwatchBtn: document.getElementById('bgSwatchBtn'),
+        bgSwatchInner: document.getElementById('bgSwatchInner'),
+        textSwatchBtn: document.getElementById('textSwatchBtn'),
+        textSwatchInner: document.getElementById('textSwatchInner'),
+        bgColorValue: document.getElementById('bgColorValue'),
+        textColorValue: document.getElementById('textColorValue'),
+        bgColorBack: document.getElementById('bgColorBack'),
+        bgColorForward: document.getElementById('bgColorForward'),
+        textColorBack: document.getElementById('textColorBack'),
+        textColorForward: document.getElementById('textColorForward'),
+        fontSizeSlider: document.getElementById('fontSizeSlider'),
+        fontSizeInput: document.getElementById('fontSizeInput'),
+        fontFamilySelect: document.getElementById('fontFamilySelect'),
+        btnFullscreen: document.getElementById('btnFullscreen'),
+        btnCopyText: document.getElementById('btnCopyText'),
+        btnResetAll: document.getElementById('btnResetAll'),
+        scrollSpeedSlider: document.getElementById('scrollSpeedSlider'),
+        scrollSpeedInput: document.getElementById('scrollSpeedInput'),
+        pauseBtn: document.getElementById('pauseBtn'),
+        pauseBtnIcon: document.getElementById('pauseBtnIcon'),
+        presetColors: document.getElementById('presetColors'),
+        toast: document.getElementById('toast'),
+    };
+
+    let state = { ...DEFAULTS };
+    let bgHistory = new ColorHistory(state.bgColor);
+    let textHistory = new ColorHistory(state.textColor);
+    let colorPreview = { bgColor: null, textColor: null };
+
+    let customPresets = [
+        { bg: '#1a1a2e', text: '#ffffff' },
+        { bg: '#1a1a2e', text: '#ffffff' },
+        { bg: '#1a1a2e', text: '#ffffff' },
+        { bg: '#1a1a2e', text: '#ffffff' },
+    ];
+    const customLabels = ['A', 'B', 'C', 'D'];
+
+    // 滚动状态
+    let scrollOffset = 0;      // 累计滚动像素（持续增长，用于计算当前位置）
+    let scrollSpeed = 0;       // 当前速度 px/s
+    let scrollAnimId = null;
+    let textWidth = 0;
+    let prevTimestamp = 0;
+    let savedSpeed = 0;        // 暂停前保存的速度
+    let isPausedByButton = false; // 是否通过按钮暂停
+    let resizeTransition = null; // { startTime, endTime, oldTextWidth } 字号/字体过渡期间的位置修正
+
+    let toastTimer = null, longPressTimer = null;
+
+    const colorPicker = new CustomColorPicker(document.getElementById('colorPickerOverlay'));
+
+    function getEffectiveColor(key) {
+        return colorPreview[key] !== null ? colorPreview[key] : state[key];
+    }
+
+    function showToast(msg, duration = 1800) {
+        if (toastTimer) clearTimeout(toastTimer);
+        els.toast.textContent = msg;
+        els.toast.classList.add('show');
+        toastTimer = setTimeout(() => {
+            els.toast.classList.remove('show');
+            toastTimer = null;
+        }, duration);
+    }
+
+    function getDisplayTextEl() {
+        let span = els.textScrollInner.querySelector('.display-text');
+        if (!span) {
+            span = document.createElement('span');
+            span.className = 'display-text';
+            els.textScrollInner.appendChild(span);
+        }
+        return span;
+    }
+
+    function renderDisplayText(text, isPlaceholder) {
+        const span = getDisplayTextEl();
+        span.textContent = text || '输入文字开始展示';
+        span.classList.toggle('placeholder', isPlaceholder || !text.trim());
+        span.style.color = getEffectiveColor('textColor');
+    }
+
+    function loadState() {
+        try {
+            const saved = localStorage.getItem('text-display-settings');
+            if (saved) state = { ...DEFAULTS, ...JSON.parse(saved) };
+        } catch (_) { state = { ...DEFAULTS }; }
+        bgHistory.reset(state.bgColor);
+        textHistory.reset(state.textColor);
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem('text-display-settings', JSON.stringify({
+                bgColor: state.bgColor,
+                textColor: state.textColor,
+                fontSize: state.fontSize,
+                fontFamily: state.fontFamily,
+                textAlign: state.textAlign,
+                text: state.text,
+            }));
+        } catch (_) {}
+    }
+
+    function updateNavButtons(key) {
+        const history = key === 'bgColor' ? bgHistory : textHistory;
+        const backBtn = key === 'bgColor' ? els.bgColorBack : els.textColorBack;
+        const fwdBtn = key === 'bgColor' ? els.bgColorForward : els.textColorForward;
+
+        backBtn.disabled = !history.canBack;
+        fwdBtn.disabled = !history.canForward;
+
+        if (history.backTarget) {
+            backBtn.style.background = history.backTarget;
+            backBtn.style.color = ColorUtils.contrastText(history.backTarget);
+        } else {
+            backBtn.style.background = '';
+            backBtn.style.color = '';
+        }
+
+        if (history.forwardTarget) {
+            fwdBtn.style.background = history.forwardTarget;
+            fwdBtn.style.color = ColorUtils.contrastText(history.forwardTarget);
+        } else {
+            fwdBtn.style.background = '';
+            fwdBtn.style.color = '';
+        }
+    }
+
+    function updateColorValueDisplay(key) {
+        const input = key === 'bgColor' ? els.bgColorValue : els.textColorValue;
+        const hex = getEffectiveColor(key);
+        input.value = hex;
+    }
+
+    function applyColorsOnly() {
+        const bg = getEffectiveColor('bgColor');
+        const text = getEffectiveColor('textColor');
+        document.documentElement.style.setProperty('--bg-color', bg);
+        document.documentElement.style.setProperty('--text-color', text);
+        els.displayArea.style.backgroundColor = bg;
+        getDisplayTextEl().style.color = text;
+        els.bgSwatchInner.style.background = bg;
+        els.textSwatchInner.style.background = text;
+        updateColorValueDisplay('bgColor');
+        updateColorValueDisplay('textColor');
+        updateNavButtons('bgColor');
+        updateNavButtons('textColor');
+    }
+
+    function setColorPreview(key, hex) {
+        colorPreview[key] = hex;
+        applyColorsOnly();
+    }
+
+    function clearColorPreview(key) {
+        colorPreview[key] = null;
+    }
+
+    function commitColor(key, hex, recordHistory) {
+        const normalized = ColorUtils.normalizeHex(hex);
+        if (!normalized) return;
+        clearColorPreview(key);
+        if (recordHistory !== false && state[key] !== normalized) {
+            (key === 'bgColor' ? bgHistory : textHistory).push(normalized);
+        }
+        state[key] = normalized;
+        applyColorsOnly();
+        saveState();
+        updatePresetActive();
+    }
+
+    function applyStateToDOM() {
+        document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+        document.documentElement.style.setProperty('--font-family', state.fontFamily);
+        document.documentElement.style.setProperty('--text-align', state.textAlign);
+        applyColorsOnly();
+        els.fontSizeSlider.value = state.fontSize;
+        els.fontSizeInput.value = state.fontSize;
+        els.fontFamilySelect.value = state.fontFamily;
+        renderDisplayText(state.text, !state.text.trim());
+        els.textInput.value = state.text;
+        updateCharCount();
+        // 注意：不在此处调用 resetScroll，由调用方决定滚动行为
+        updatePresetActive();
+    }
+
+    function updateCharCount() {
+        const len = state.text.length;
+        els.charCount.textContent = len;
+        els.charCount.style.color = len >= 450 ? '#ff6b6b' : (len >= 300 ? '#ffb366' : '#667');
+    }
+
+    function updatePresetActive() {
+        els.presetColors.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.bg === state.bgColor && btn.dataset.text === state.textColor);
+        });
+        updateCustomPresetButtons();
+    }
+
+    function loadCustomPresets() {
+        try {
+            const saved = localStorage.getItem('text-display-custom-presets');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                for (let i = 0; i < 4; i++) if (parsed[i]) customPresets[i] = parsed[i];
+            }
+        } catch (_) {}
+    }
+
+    function saveCustomPresets() {
+        try { localStorage.setItem('text-display-custom-presets', JSON.stringify(customPresets)); } catch (_) {}
+    }
+
+    function updateCustomPresetButtons() {
+        els.presetColors.querySelectorAll('.preset-custom').forEach(btn => {
+            const idx = parseInt(btn.dataset.index, 10);
+            const p = customPresets[idx];
+            btn.style.background = p.bg;
+            btn.style.color = p.text;
+            btn.dataset.bg = p.bg;
+            btn.dataset.text = p.text;
+        });
+    }
+
+    function openColorPicker(key) {
+        const anchor = key === 'bgColor' ? els.bgSwatchBtn : els.textSwatchBtn;
+        colorPicker.open(
+            anchor,
+            state[key],
+            key === 'bgColor' ? '选择背景颜色' : '选择文字颜色',
+            (hex) => setColorPreview(key, hex),
+            (hex) => commitColor(key, hex, true)
+        );
+    }
+
+    function setupColorValueInput(input, key) {
+        input.addEventListener('click', () => {
+            input.classList.add('editable');
+            input.removeAttribute('readonly');
+            input.value = state[key];
+            input.select();
+        });
+
+        input.addEventListener('blur', () => {
+            const hex = ColorUtils.parseColor(input.value);
+            if (hex) commitColor(key, hex, true);
+            input.classList.remove('editable');
+            input.setAttribute('readonly', 'readonly');
+            updateColorValueDisplay(key);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+            else if (e.key === 'Escape') {
+                input.classList.remove('editable');
+                input.setAttribute('readonly', 'readonly');
+                updateColorValueDisplay(key);
+            }
+        });
+
+        input.addEventListener('paste', (e) => {
+            if (input.hasAttribute('readonly')) return;
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text').trim();
+            const hex = ColorUtils.parseColor(text);
+            if (hex) {
+                input.value = hex;
+                commitColor(key, hex, true);
+                input.classList.remove('editable');
+                input.setAttribute('readonly', 'readonly');
+                updateColorValueDisplay(key);
+            }
+        });
+    }
+
+    function navigateColorHistory(key, direction) {
+        const history = key === 'bgColor' ? bgHistory : textHistory;
+        const next = direction === 'back' ? history.back() : history.forward();
+        if (!next) return;
+        state[key] = next;
+        applyColorsOnly();
+        saveState();
+        updatePresetActive();
+    }
+
+    // 滑块 0~100：原 0~满速(300)；滑块 100~200：满速 → 6倍满速(1800)，线性
+    // 左半段保持原 ease^1.6 曲线感（柔和启动），右半段线性加速
+    function sliderToSpeed(val) {
+        val = ColorUtils.clamp(val, 0, 200);
+        if (val <= 0) return 0;
+        if (val <= 100) {
+            return Math.round(300 * Math.pow(val / 100, 1.6));
+        }
+        // 100~200 -> 300~1800 线性
+        return Math.round(300 + (val - 100) * 15);
+    }
+
+    // 速度反向映射到滑块值
+    function speedToSlider(speed) {
+        if (speed <= 0) return 0;
+        if (speed <= 300) {
+            return Math.round(100 * Math.pow(speed / 300, 1 / 1.6));
+        }
+        return Math.round(100 + (speed - 300) / 15);
+    }
+
+    function measureTextWidth() {
+        const el = getDisplayTextEl();
+        if (el) textWidth = el.offsetWidth;
+    }
+
+    // 更新暂停按钮的显示状态
+    function updatePauseBtn() {
+        if (scrollSpeed > 0 && state.text.trim()) {
+            // 正在滚动，显示暂停按钮（两竖）
+            els.pauseBtn.style.display = '';
+            els.pauseBtnIcon.textContent = '⏸';
+            isPausedByButton = false;
+        } else if (isPausedByButton && state.text.trim()) {
+            // 通过按钮暂停的，显示播放按钮（三角形）
+            els.pauseBtn.style.display = '';
+            els.pauseBtnIcon.textContent = '▶';
+        } else if (scrollSpeed === 0 && !isPausedByButton && savedSpeed > 0 && state.text.trim()) {
+            // 速度被手动拖到0，但之前有速度，也显示播放
+            els.pauseBtn.style.display = '';
+            els.pauseBtnIcon.textContent = '▶';
+        } else {
+            // 隐藏按钮
+            els.pauseBtn.style.display = 'none';
+            isPausedByButton = false;
+            savedSpeed = 0;
+        }
+    }
+
+    // 核心：滚动循环（基于时间，使用取模实现无缝循环）
+    function scrollLoop(timestamp) {
+        if (!prevTimestamp) prevTimestamp = timestamp;
+        const dt = Math.min((timestamp - prevTimestamp) / 1000, 0.2); // 最多0.2秒，防止切标签页后跳跃
+        prevTimestamp = timestamp;
+
+        if (scrollSpeed > 0) {
+            scrollOffset += scrollSpeed * dt;
+        }
+
+        const wrapperWidth = els.textScrollWrapper.clientWidth;
+        const cycleLength = textWidth + wrapperWidth;
+        if (cycleLength > 0) {
+            // 使用取模实现：文字从右边缘出现，向左移动到左边缘消失，然后从右边缘重新出现
+            let displayOffset = scrollOffset % cycleLength;
+            if (displayOffset < 0) displayOffset += cycleLength;
+            els.textScrollInner.style.transform = 'translateX(' + (wrapperWidth - displayOffset) + 'px)';
+        }
+
+        scrollAnimId = requestAnimationFrame(scrollLoop);
+    }
+
+    // 启动滚动循环（不重置位置）
+    function ensureScrollLoopRunning() {
+        if (!scrollAnimId && state.text.trim()) {
+            prevTimestamp = 0;
+            measureTextWidth();
+            scrollAnimId = requestAnimationFrame(scrollLoop);
+        }
+    }
+
+    // 完全停止滚动循环并居中
+    function stopScrollAndCenter() {
+        if (scrollAnimId) {
+            cancelAnimationFrame(scrollAnimId);
+            scrollAnimId = null;
+        }
+        prevTimestamp = 0;
+        scrollOffset = 0;
+        scrollSpeed = 0;
+        isPausedByButton = false;
+        savedSpeed = 0;
+        els.textScrollInner.style.transform = 'translateX(0)';
+        els.scrollSpeedSlider.value = 0;
+        els.scrollSpeedInput.value = '0';
+        updatePauseBtn();
+    }
+
+    // 当内容改变时：停止滚动并居中
+    function resetScrollOnContentChange() {
+        stopScrollAndCenter();
+        measureTextWidth();
+    }
+
+    // 当仅样式改变（字体、字号）时：不碰文字位置，等 CSS transition 完成后再重新测量宽度
+    function remeasureAndAdjustScroll() {
+        const isScrolling = scrollSpeed > 0 || (scrollAnimId && isPausedByButton);
+        if (!isScrolling) {
+            // 没在滚动：直接居中并测量
+            scrollOffset = 0;
+            els.textScrollInner.style.transform = 'translateX(0)';
+            measureTextWidth();
+            return;
+        }
+        // 正在滚动/暂停中：不动位置，CSS transition 0.3s 让文字在原地平滑缩放
+        // 等过渡结束后再测量新宽度，并按比例调整 scrollOffset 保持视觉位置不变
+        setTimeout(() => {
+            const wrapperWidth = els.textScrollWrapper.clientWidth;
+            const oldCycle = textWidth + wrapperWidth;
+            measureTextWidth();
+            const newCycle = textWidth + wrapperWidth;
+            if (oldCycle > 0 && newCycle > 0 && scrollOffset > 0) {
+                const relativePos = (scrollOffset % oldCycle) / oldCycle;
+                const fullCycles = Math.floor(scrollOffset / oldCycle);
+                scrollOffset = fullCycles * newCycle + relativePos * newCycle;
+            }
+        }, 350);
+    }
+
+    // 改变速度（不复位）
+    function changeSpeed(newSpeed) {
+        const wasRunning = scrollSpeed > 0;
+        scrollSpeed = newSpeed;
+
+        if (newSpeed > 0) {
+            if (!wasRunning) {
+                // 从静止开始滚动：从当前位置开始
+                // 如果 scrollOffset 为 0（从未滚动过），初始化到右边缘
+                if (scrollOffset === 0 || !scrollAnimId) {
+                    measureTextWidth();
+                    scrollOffset = 0; // 从右边缘开始
+                    els.textScrollInner.style.transform = 'translateX(' + els.textScrollWrapper.clientWidth + 'px)';
+                }
+                ensureScrollLoopRunning();
+            }
+            // 已经是运行状态，速度自然变化，不需要任何操作
+        } else {
+            // 速度设为 0
+            if (scrollAnimId) {
+                // 不停动画循环，只是速度变为0，文字停在当前位置
+                // 但如果不需要了，可以停止循环
+                if (!isPausedByButton && savedSpeed === 0) {
+                    // 完全停止
+                    cancelAnimationFrame(scrollAnimId);
+                    scrollAnimId = null;
+                    prevTimestamp = 0;
+                }
+            }
+        }
+
+        updatePauseBtn();
+    }
+
+    // 暂停按钮点击
+    function togglePause() {
+        if (scrollSpeed > 0) {
+            // 正在播放 → 暂停
+            savedSpeed = scrollSpeed;
+            scrollSpeed = 0;
+            isPausedByButton = true;
+            // 保持动画循环运行以维持渲染（例如窗口大小变化时）
+            ensureScrollLoopRunning();
+        } else {
+            // 已暂停 → 播放
+            const speed = savedSpeed > 0 ? savedSpeed : sliderToSpeed(parseInt(els.scrollSpeedSlider.value, 10)) || savedSpeed || 30;
+            savedSpeed = speed;
+            scrollSpeed = speed;
+            isPausedByButton = false;
+            // 更新滑块和输入框
+            els.scrollSpeedInput.value = speed;
+            // 找对应的滑块值
+            if (speed > 0) {
+                const sliderVal = speedToSlider(speed);
+                els.scrollSpeedSlider.value = Math.min(200, Math.max(0, sliderVal));
+            } else {
+                els.scrollSpeedSlider.value = 0;
+            }
+            ensureScrollLoopRunning();
+        }
+        updatePauseBtn();
+    }
+
+    function autoFitFontSize() {
+        const h = els.textScrollWrapper.clientHeight;
+        const newSize = Math.max(20, Math.min(800, Math.round(h * 0.95)));
+        state.fontSize = newSize;
+        document.documentElement.style.setProperty('--font-size', newSize + 'px');
+        els.fontSizeSlider.value = newSize;
+        els.fontSizeInput.value = newSize;
+        remeasureAndAdjustScroll();
+    }
+
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            els.displayArea.requestFullscreen().catch(() => showToast('⚠️ 全屏失败'));
+            showToast('已进入全屏 · 按 Esc 退出');
+        } else {
+            document.exitFullscreen();
+            showToast('已退出全屏');
+        }
+    }
+
+    // 事件绑定
+    els.textInput.addEventListener('input', () => {
+        state.text = els.textInput.value;
+        renderDisplayText(state.text, !state.text.trim());
+        updateCharCount();
+        saveState();
+        resetScrollOnContentChange();
+        updatePauseBtn();
+    });
+
+    els.btnClear.addEventListener('click', () => {
+        state.text = '';
+        els.textInput.value = '';
+        renderDisplayText('', true);
+        updateCharCount();
+        saveState();
+        resetScrollOnContentChange();
+        updatePauseBtn();
+        els.textInput.focus();
+        showToast('已清空 ✓');
+    });
+
+    els.bgSwatchBtn.addEventListener('click', () => openColorPicker('bgColor'));
+    els.textSwatchBtn.addEventListener('click', () => openColorPicker('textColor'));
+
+    setupColorValueInput(els.bgColorValue, 'bgColor');
+    setupColorValueInput(els.textColorValue, 'textColor');
+
+    els.bgColorBack.addEventListener('click', () => navigateColorHistory('bgColor', 'back'));
+    els.bgColorForward.addEventListener('click', () => navigateColorHistory('bgColor', 'forward'));
+    els.textColorBack.addEventListener('click', () => navigateColorHistory('textColor', 'back'));
+    els.textColorForward.addEventListener('click', () => navigateColorHistory('textColor', 'forward'));
+
+    // 字体大小滑块
+    els.fontSizeSlider.addEventListener('input', () => {
+        state.fontSize = parseInt(els.fontSizeSlider.value, 10);
+        els.fontSizeInput.value = state.fontSize;
+        document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+        remeasureAndAdjustScroll();
+    });
+    els.fontSizeSlider.addEventListener('change', saveState);
+
+    els.fontSizeInput.addEventListener('click', () => {
+        els.fontSizeInput.classList.add('editable');
+        els.fontSizeInput.select();
+    });
+
+    els.fontSizeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') els.fontSizeInput.blur();
+        else if (e.key === 'Escape') {
+            els.fontSizeInput.classList.remove('editable');
+            els.fontSizeInput.value = state.fontSize;
+            els.fontSizeInput.blur();
+        }
+    });
+
+    els.fontSizeInput.addEventListener('blur', () => {
+        let val = parseInt(els.fontSizeInput.value, 10);
+        if (isNaN(val) || val < 20) val = 20;
+        if (val > 800) val = 800;
+        state.fontSize = val;
+        els.fontSizeInput.classList.remove('editable');
+        document.documentElement.style.setProperty('--font-size', state.fontSize + 'px');
+        els.fontSizeSlider.value = state.fontSize;
+        remeasureAndAdjustScroll();
+        saveState();
+    });
+
+    // 字体选择
+    els.fontFamilySelect.addEventListener('change', () => {
+        state.fontFamily = els.fontFamilySelect.value;
+        document.documentElement.style.setProperty('--font-family', state.fontFamily);
+        renderDisplayText(state.text, !state.text.trim());
+        saveState();
+        // 延迟重新测量（等字体加载/渲染完成）
+        setTimeout(() => remeasureAndAdjustScroll(), 100);
+        showToast('字体已切换 ✨');
+    });
+
+    els.presetColors.addEventListener('click', (e) => {
+        const btn = e.target.closest('.preset-btn');
+        if (!btn) return;
+        if (btn.classList.contains('preset-custom')) {
+            const idx = parseInt(btn.dataset.index, 10);
+            commitColor('bgColor', customPresets[idx].bg, true);
+            commitColor('textColor', customPresets[idx].text, true);
+            showToast('配色 ' + customLabels[idx] + ' 已应用');
+            return;
+        }
+        commitColor('bgColor', btn.dataset.bg, true);
+        commitColor('textColor', btn.dataset.text, true);
+        showToast('配色方案：' + btn.textContent.trim() + ' 已应用');
+    });
+
+    els.presetColors.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const btn = e.target.closest('.preset-btn.preset-custom');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.index, 10);
+        longPressTimer = setTimeout(() => {
+            longPressTimer = null;
+            customPresets[idx] = { bg: state.bgColor, text: state.textColor };
+            saveCustomPresets();
+            updateCustomPresetButtons();
+            showToast('已保存配色到 ' + customLabels[idx] + ' ✓');
+        }, 500);
+    });
+    els.presetColors.addEventListener('mouseup', () => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    els.presetColors.addEventListener('mouseleave', () => {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+
+    els.btnFullscreen.addEventListener('click', toggleFullscreen);
+
+    els.btnCopyText.addEventListener('click', () => {
+        const textToCopy = state.text.trim() || '输入文字开始展示';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).then(
+                () => showToast('📋 已复制到剪贴板！'),
+                () => fallbackCopy(textToCopy)
+            );
+        } else fallbackCopy(textToCopy);
+    });
+
+    function fallbackCopy(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); showToast('📋 已复制！'); }
+        catch (_) { showToast('⚠️ 复制失败'); }
+        document.body.removeChild(ta);
+    }
+
+    els.btnResetAll.addEventListener('click', () => {
+        if (!confirm('确定要重置所有设置为默认值吗？')) return;
+        state = { ...DEFAULTS };
+        bgHistory.reset(state.bgColor);
+        textHistory.reset(state.textColor);
+        stopScrollAndCenter();
+        applyStateToDOM();
+        saveState();
+        updatePauseBtn();
+        els.textInput.focus();
+        showToast('✅ 已全部重置');
+    });
+
+    // 滚动速度滑块
+    els.scrollSpeedSlider.addEventListener('input', () => {
+        const newSpeed = sliderToSpeed(parseInt(els.scrollSpeedSlider.value, 10));
+        els.scrollSpeedInput.value = newSpeed;
+        isPausedByButton = false;
+        if (newSpeed > 0) savedSpeed = newSpeed;
+        changeSpeed(newSpeed);
+    });
+
+    // 滚动速度输入框
+    els.scrollSpeedInput.addEventListener('click', () => {
+        els.scrollSpeedInput.classList.add('editable');
+        els.scrollSpeedInput.select();
+    });
+
+    els.scrollSpeedInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') els.scrollSpeedInput.blur();
+        else if (e.key === 'Escape') {
+            els.scrollSpeedInput.classList.remove('editable');
+            els.scrollSpeedInput.value = scrollSpeed;
+            els.scrollSpeedInput.blur();
+        }
+    });
+
+    els.scrollSpeedInput.addEventListener('blur', () => {
+        let val = parseInt(els.scrollSpeedInput.value, 10);
+        if (isNaN(val)) val = 0;
+        val = ColorUtils.clamp(val, 0, 8000);
+        els.scrollSpeedInput.classList.remove('editable');
+        els.scrollSpeedInput.value = val;
+        isPausedByButton = false;
+        if (val > 0) savedSpeed = val;
+        // 更新滑块
+        if (val > 0) {
+            const sliderVal = speedToSlider(val);
+            els.scrollSpeedSlider.value = Math.min(200, Math.max(0, sliderVal));
+        } else {
+            els.scrollSpeedSlider.value = 0;
+        }
+        changeSpeed(val);
+    });
+
+    // 暂停按钮
+    els.pauseBtn.addEventListener('click', togglePause);
+
+    els.displayArea.addEventListener('click', () => els.textInput.focus());
+
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); toggleFullscreen(); }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'c') {
+            e.preventDefault();
+            els.btnCopyText.click();
+        }
+        if (e.key === 'Escape' && document.activeElement === els.textInput) els.textInput.blur();
+        if (document.activeElement === els.displayArea && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            els.textInput.focus();
+            els.textInput.value += e.key;
+            els.textInput.dispatchEvent(new Event('input'));
+            e.preventDefault();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        els.displayArea.style.borderRadius = document.fullscreenElement === els.displayArea ? '0' : '';
+        // 全屏变化后重新测量
+        setTimeout(() => {
+            if (scrollSpeed > 0 || isPausedByButton) {
+                remeasureAndAdjustScroll();
+            }
+        }, 100);
+    });
+
+    window.addEventListener('resize', () => {
+        // 如果正在滚动，调整尺寸后需要重新测量
+        if (scrollSpeed > 0 || isPausedByButton) {
+            setTimeout(() => remeasureAndAdjustScroll(), 50);
+        }
+    });
+    window.addEventListener('beforeunload', saveState);
+
+    // 初始化
+    loadState();
+    loadCustomPresets();
+    scrollSpeed = 0;
+    savedSpeed = 0;
+    isPausedByButton = false;
+    els.scrollSpeedSlider.value = 0;
+    els.scrollSpeedInput.value = '0';
+    applyStateToDOM();
+    measureTextWidth();
+    updatePresetActive();
+    updatePauseBtn();
+    if (state.text.trim()) {
+        els.textInput.value = state.text;
+        els.textInput.focus();
+        els.textInput.setSelectionRange(els.textInput.value.length, els.textInput.value.length);
+    }
+})();
+</script>
+</body>
+</html>
