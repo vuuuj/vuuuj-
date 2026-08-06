@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PNG 多图标提取工具</title>
+<style>
+  :root {
+    --bg: #1a1b1e;
+    --panel: #25262b;
+    --border: #373a40;
+    --text: #e9ecef;
+    --muted: #909296;
+    --accent: #4dabf7;
+    --accent2: #51cf66;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  header p { font-size: 12px; color: var(--muted); }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    font-size: 13px;
+  }
+  .toolbar label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .toolbar input[type=range] { width: 80px; }
+  .toolbar input[type=number] {
+    width: 56px; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 6px; border-radius: 4px;
+  }
+  .toolbar button, .btn {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .toolbar button:hover, .btn:hover { border-color: var(--accent); }
+  .toolbar button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .toolbar button.primary { background: var(--accent2); color: #000; border-color: var(--accent2); font-weight: 600; }
+  .toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .sizes { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sizes label { font-size: 12px; }
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    min-height: 0;
+  }
+  .canvas-area {
+    position: relative;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+    background: #121316;
+  }
+  .canvas-wrap {
+    position: relative;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+    line-height: 0;
+  }
+  .checker {
+    background-image:
+      linear-gradient(45deg, #333 25%, transparent 25%),
+      linear-gradient(-45deg, #333 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #333 75%),
+      linear-gradient(-45deg, transparent 75%, #333 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+    background-color: #222;
+  }
+  #mainCanvas { display: block; cursor: crosshair; }
+  #dropZone {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border: 2px dashed var(--border); border-radius: 12px; margin: 24px;
+    color: var(--muted); pointer-events: none; opacity: 0;
+    transition: opacity .2s;
+  }
+  .canvas-area.empty #dropZone { opacity: 1; pointer-events: auto; cursor: pointer; }
+  .canvas-area.empty #dropZone:hover { border-color: var(--accent); color: var(--accent); }
+  .sidebar {
+    border-left: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .sidebar h2 {
+    padding: 12px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .icon-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .icon-item {
+    display: flex; gap: 10px; align-items: center;
+    padding: 8px; border-radius: 8px; cursor: pointer;
+    border: 2px solid transparent; margin-bottom: 6px;
+    background: var(--bg);
+  }
+  .icon-item:hover { border-color: var(--border); }
+  .icon-item.selected { border-color: var(--accent); }
+  .icon-item canvas {
+    width: 48px; height: 48px;
+    object-fit: contain;
+    background: repeating-conic-gradient(#444 0% 25%, #333 0% 50%) 50% / 12px 12px;
+    border-radius: 4px;
+  }
+  .icon-item .info { flex: 1; min-width: 0; }
+  .icon-item .info .id { font-weight: 600; font-size: 13px; }
+  .icon-item .info .size { font-size: 11px; color: var(--muted); }
+  .edit-panel {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  .edit-panel h3 { font-size: 12px; margin-bottom: 8px; color: var(--muted); }
+  .edit-tools { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .status {
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .hidden { display: none !important; }
+  input[type=file] { display: none; }
+  .sizes-hint { font-size: 11px; color: var(--muted); }
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,.75);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: min(960px, 96vw);
+    max-height: 92vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  }
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head h3 { font-size: 14px; }
+  .modal-head .close-btn {
+    background: none; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; line-height: 1;
+  }
+  .modal-head .close-btn:hover { color: var(--text); }
+  .modal-toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .modal-body {
+    flex: 1; overflow: auto; padding: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: #121316; min-height: 300px;
+  }
+  .modal-canvas-wrap { line-height: 0; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+  #editCanvas { display: block; cursor: crosshair; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .modal-foot {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 12px 16px; border-top: 1px solid var(--border);
+  }
+  #modalMagnifier {
+    position: fixed; pointer-events: none; z-index: 3000;
+    display: none; border: 2px solid var(--accent); border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.6); background: #111;
+  }
+  #modalMagCanvas { display: block; image-rendering: pixelated; }
+  .btn-edit-open { width: 100%; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PNG 多图标提取工具</h1>
+  <p>拖入含多个图标的图片 → 自动分割 → 微调 → 批量导出透明 PNG</p>
+</header>
+
+<div class="toolbar">
+  <button id="btnOpen">打开图片</button>
+  <input type="file" id="fileInput" accept="image/*">
+  <button id="btnAnalyze" class="primary" disabled>重新分析</button>
+  <span style="color:var(--border)">|</span>
+  <label>容差 <input type="range" id="tolerance" min="5" max="120" value="35"><span id="tolVal">35</span></label>
+  <label>最小面积 <input type="number" id="minArea" value="200" min="10" step="10"></label>
+  <label>保留包边 <input type="range" id="borderKeep" min="0" max="8" value="1"><span id="borderKeepVal">1</span>px</label>
+  <label>羽化 <input type="range" id="feather" min="0" max="12" value="0"><span id="featherVal">0</span></label>
+  <label>边距 <input type="number" id="padding" value="0" min="0" max="32"></label>
+  <span style="color:var(--border)">|</span>
+  <span class="sizes-hint">导出默认 1:1 原始像素 · 额外放大可选</span>
+  <div class="sizes" id="sizeChecks">
+    <label><input type="checkbox" value="32">32</label>
+    <label><input type="checkbox" value="64">64</label>
+    <label><input type="checkbox" value="128">128</label>
+    <label><input type="checkbox" value="256">256</label>
+    <label><input type="checkbox" value="512">512</label>
+  </div>
+  <button id="btnExport" class="primary" disabled>导出 ZIP</button>
+</div>
+
+<main>
+  <div class="canvas-area empty" id="canvasArea">
+    <div id="dropZone">
+      <div style="font-size:40px;margin-bottom:8px">📁</div>
+      <div>拖放图片到此处，或点击选择</div>
+      <div style="font-size:11px;margin-top:6px">PNG / JPG / WEBP / GIF / BMP</div>
+    </div>
+    <div class="canvas-wrap checker hidden" id="canvasWrap">
+      <canvas id="mainCanvas"></canvas>
+    </div>
+  </div>
+  <aside class="sidebar">
+    <h2>图标列表 <span id="iconCount">0</span></h2>
+    <div class="icon-list" id="iconList"></div>
+    <div class="edit-panel" id="editPanel">
+      <h3>操作</h3>
+      <button class="btn primary btn-edit-open" id="btnOpenEditor" disabled>打开微调画板</button>
+      <button class="btn" id="btnDelete" disabled style="color:var(--danger);margin-top:8px;width:100%">删除选中</button>
+      <p style="margin-top:10px;color:var(--muted);line-height:1.5">双击列表项也可打开画板。小图标会放大显示，便于修边。</p>
+    </div>
+  </aside>
+</main>
+
+<div class="status" id="status">请打开或拖入图片</div>
+
+<div id="editModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">微调</h3>
+      <button class="close-btn" id="modalCloseBtn" title="关闭">×</button>
+    </div>
+    <div class="modal-toolbar">
+      <button class="btn modal-tool active" data-tool="wand">魔棒</button>
+      <button class="btn modal-tool" data-tool="brush">画笔</button>
+      <button class="btn modal-tool" data-tool="eraser">橡皮</button>
+      <button class="btn" id="modalUndo" disabled>撤销</button>
+      <button class="btn" id="modalRedo" disabled>重做</button>
+      <label>容差 <input type="range" id="modalTolerance" min="5" max="120" value="35"><span id="modalTolVal">35</span></label>
+      <label>画笔 <input type="range" id="modalBrushSize" min="1" max="24" value="3"><span id="modalBrushVal">3</span></label>
+      <span style="color:var(--muted);font-size:12px">左键添加 · 右键减选 · 滚轮缩放视图</span>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="modal-canvas-wrap checker" id="modalCanvasWrap">
+        <canvas id="editCanvas"></canvas>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalApply">完成</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalMagnifier"><canvas id="modalMagCanvas" width="168" height="168"></canvas></div>
+
+<script>
+(() => {
+'use strict';
+
+// ─── CRC32 for ZIP ───
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c;
+  }
+  return t;
+})();
+function crc32(data) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < data.length; i++) c = CRC_TABLE[(c ^ data[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function createZip(files) {
+  const enc = new TextEncoder();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const data = f.data instanceof Uint8Array ? f.data : new Uint8Array(f.data);
+    const crc = crc32(data);
+    const lh = new Uint8Array(30 + name.length);
+    const dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true);
+    dv.setUint16(4, 20, true);
+    dv.setUint16(8, 0, true);
+    dv.setUint32(14, crc, true);
+    dv.setUint32(18, data.length, true);
+    dv.setUint32(22, data.length, true);
+    dv.setUint16(26, name.length, true);
+    lh.set(name, 30);
+    parts.push(lh, data);
+    const cd = new Uint8Array(46 + name.length);
+    const dv2 = new DataView(cd.buffer);
+    dv2.setUint32(0, 0x02014b50, true);
+    dv2.setUint16(4, 20, true);
+    dv2.setUint16(6, 20, true);
+    dv2.setUint16(8, 0, true);
+    dv2.setUint32(16, crc, true);
+    dv2.setUint32(20, data.length, true);
+    dv2.setUint32(24, data.length, true);
+    dv2.setUint16(28, name.length, true);
+    dv2.setUint32(42, offset, true);
+    cd.set(name, 46);
+    central.push(cd);
+    offset += lh.length + data.length;
+  }
+  let cdSize = 0;
+  for (const c of central) cdSize += c.length;
+  const eocd = new Uint8Array(22);
+  const dv3 = new DataView(eocd.buffer);
+  dv3.setUint32(0, 0x06054b50, true);
+  dv3.setUint16(8, files.length, true);
+  dv3.setUint16(10, files.length, true);
+  dv3.setUint32(12, cdSize, true);
+  dv3.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, eocd], { type: 'application/zip' });
+}
+
+// ─── Color utils ───
+function colorDist(r1,g1,b1,r2,g2,b2) {
+  const dr=r1-r2, dg=g1-g2, db=b1-b2;
+  return Math.sqrt(dr*dr + dg*dg + db*db);
+}
+
+function sampleBgColor(data, w, h) {
+  const samples = [];
+  const r = Math.min(12, Math.floor(w/10), Math.floor(h/10));
+  const corners = [[0,0],[w-r,0],[0,h-r],[w-r,h-r]];
+  for (const [cx,cy] of corners) {
+    for (let y = cy; y < cy + r; y++) {
+      for (let x = cx; x < cx + r; x++) {
+        const i = (y * w + x) * 4;
+        samples.push([data[i], data[i+1], data[i+2]]);
+      }
+    }
+  }
+  for (let c = 0; c < 3; c++) {
+    samples.sort((a,b) => a[c] - b[c]);
+  }
+  const mid = samples.length >> 1;
+  return [samples[mid][0], samples[mid][1], samples[mid][2]];
+}
+
+// ─── Flood fill background ───
+function buildBackgroundMask(data, w, h, bg, tolerance) {
+  const n = w * h;
+  const isBg = new Uint8Array(n);
+  const visited = new Uint8Array(n);
+  const stack = [];
+
+  // Seeds: corners + edge midpoints
+  const seeds = [];
+  for (let x = 0; x < w; x++) { seeds.push([x,0]); seeds.push([x,h-1]); }
+  for (let y = 1; y < h-1; y++) { seeds.push([0,y]); seeds.push([w-1,y]); }
+
+  for (const [sx,sy] of seeds) {
+    const si = sy * w + sx;
+    if (visited[si]) continue;
+    const i4 = si * 4;
+    if (colorDist(data[i4], data[i4+1], data[i4+2], bg[0], bg[1], bg[2]) > tolerance) continue;
+    stack.push([sx, sy]);
+    visited[si] = 1;
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      const idx = y * w + x;
+      isBg[idx] = 1;
+      const neighbors = [[x-1,y],[x+1,y],[x,y-1],[x,y+1]];
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+        const ni = ny * w + nx;
+        if (visited[ni]) continue;
+        const j4 = ni * 4;
+        if (colorDist(data[j4], data[j4+1], data[j4+2], bg[0], bg[1], bg[2]) <= tolerance) {
+          visited[ni] = 1;
+          stack.push([nx, ny]);
+        }
+      }
+    }
+  }
+  return isBg;
+}
+
+// ─── Connected components (Union-Find) ───
+function findComponents(fgMask, w, h) {
+  const n = w * h;
+  const parent = new Int32Array(n);
+  for (let i = 0; i < n; i++) parent[i] = fgMask[i] ? i : -1;
+
+  function find(a) {
+    while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+    return a;
+  }
+  function unite(a, b) {
+    a = find(a); b = find(b);
+    if (a === b) return;
+    parent[b] = a;
+  }
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!fgMask[i]) continue;
+      if (x > 0 && fgMask[i-1]) unite(i, i-1);
+      if (y > 0 && fgMask[i-w]) unite(i, i-w);
+      if (x > 0 && y > 0 && fgMask[i-w-1]) unite(i, i-w-1);
+      if (x < w-1 && y > 0 && fgMask[i-w+1]) unite(i, i-w+1);
+    }
+  }
+
+  const rootMap = new Map();
+  let nextId = 0;
+  const labels = new Int32Array(n).fill(-1);
+  for (let i = 0; i < n; i++) {
+    if (!fgMask[i]) continue;
+    const r = find(i);
+    if (!rootMap.has(r)) rootMap.set(r, nextId++);
+    labels[i] = rootMap.get(r);
+  }
+  return { labels, count: nextId };
+}
+
+function buildRegions(sourceData, w, h, labels, count, minArea) {
+  const areas = new Int32Array(count);
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] >= 0) areas[labels[i]]++;
+  }
+
+  const regions = [];
+  for (let lid = 0; lid < count; lid++) {
+    if (areas[lid] < minArea) continue;
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    const mask = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        if (labels[i] === lid) {
+          mask[i] = 255;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    regions.push({
+      id: regions.length + 1,
+      labelId: lid,
+      mask,
+      bbox: { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 },
+      area: areas[lid]
+    });
+  }
+  regions.sort((a, b) => b.area - a.area);
+  regions.forEach((r, i) => r.id = i + 1);
+  return regions;
+}
+
+// ─── Gaussian blur on mask (separable) ───
+function gaussianBlurMask(mask, w, h, radius) {
+  if (radius <= 0) return mask.slice();
+  const sigma = radius / 2;
+  const size = radius * 2 + 1;
+  const kernel = new Float32Array(size);
+  let sum = 0;
+  for (let i = 0; i < size; i++) {
+    const x = i - radius;
+    kernel[i] = Math.exp(-(x * x) / (2 * sigma * sigma));
+    sum += kernel[i];
+  }
+  for (let i = 0; i < size; i++) kernel[i] /= sum;
+
+  const tmp = new Float32Array(w * h);
+  const out = new Float32Array(w * h);
+  // horizontal
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const cx = Math.min(w - 1, Math.max(0, x + k));
+        v += mask[y * w + cx] * kernel[k + radius];
+      }
+      tmp[y * w + x] = v;
+    }
+  }
+  // vertical
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let v = 0;
+      for (let k = -radius; k <= radius; k++) {
+        const cy = Math.min(h - 1, Math.max(0, y + k));
+        v += tmp[cy * w + x] * kernel[k + radius];
+      }
+      out[y * w + x] = v;
+    }
+  }
+  const result = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) result[i] = Math.min(255, Math.round(out[i]));
+  return result;
+}
+
+// ─── Morphological dilation (保留包边) ───
+function dilateMask(mask, w, h, radius) {
+  if (radius <= 0) return mask.slice();
+  const result = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[y * w + x]) continue;
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > radius * radius) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h) result[ny * w + nx] = 255;
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function getEffectiveMask(mask, w, h, borderKeep, feather) {
+  let m = borderKeep > 0 ? dilateMask(mask, w, h, borderKeep) : mask.slice();
+  if (feather > 0) m = gaussianBlurMask(m, w, h, feather);
+  return m;
+}
+
+function bboxFromMask(mask, w, h) {
+  let minX = w, minY = h, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (mask[y * w + x] > 8) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < minX) return null;
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+// ─── Extract region to canvas ───
+function extractRegionCanvas(sourceData, w, h, region, borderKeep, feather, padding) {
+  const mask = getEffectiveMask(region.mask, w, h, borderKeep, feather);
+  const bbox = bboxFromMask(mask, w, h) || region.bbox;
+
+  const pad = padding | 0;
+  const bx = Math.max(0, bbox.x - pad);
+  const by = Math.max(0, bbox.y - pad);
+  const bw = Math.min(w - bx, bbox.w + pad * 2);
+  const bh = Math.min(h - by, bbox.h + pad * 2);
+
+  const out = document.createElement('canvas');
+  out.width = bw;
+  out.height = bh;
+  const ctx = out.getContext('2d');
+  const imgData = ctx.createImageData(bw, bh);
+
+  for (let y = 0; y < bh; y++) {
+    for (let x = 0; x < bw; x++) {
+      const sx = bx + x, sy = by + y;
+      const si = (sy * w + sx) * 4;
+      const mi = sy * w + sx;
+      const di = (y * bw + x) * 4;
+      imgData.data[di] = sourceData[si];
+      imgData.data[di+1] = sourceData[si+1];
+      imgData.data[di+2] = sourceData[si+2];
+      imgData.data[di+3] = mask[mi];
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return out;
+}
+
+// ─── Flood fill for magic wand ───
+function floodFillMask(sourceData, w, h, startX, startY, tolerance, addMode, existingMask) {
+  const result = existingMask.slice();
+  const si = startY * w + startX;
+  if (!addMode && result[si] === 0) return result;
+
+  const i4 = si * 4;
+  const sr = sourceData[i4], sg = sourceData[i4+1], sb = sourceData[i4+2];
+  const visited = new Uint8Array(w * h);
+  const stack = [[startX, startY]];
+  visited[si] = 1;
+
+  while (stack.length) {
+    const [x, y] = stack.pop();
+    const idx = y * w + x;
+    const j4 = idx * 4;
+    if (colorDist(sourceData[j4], sourceData[j4+1], sourceData[j4+2], sr, sg, sb) > tolerance) continue;
+
+    result[idx] = addMode ? 255 : 0;
+
+    const nb = [[x-1,y],[x+1,y],[x,y-1],[x,y+1]];
+    for (const [nx, ny] of nb) {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const ni = ny * w + nx;
+      if (visited[ni]) continue;
+      visited[ni] = 1;
+      stack.push([nx, ny]);
+    }
+  }
+  return result;
+}
+
+function updateBbox(region, w, h) {
+  let minX = w, minY = h, maxX = 0, maxY = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (region.mask[y * w + x] > 0) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX >= minX) {
+    region.bbox = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    region.area = region.mask.reduce((s, v) => s + (v > 0 ? 1 : 0), 0);
+  }
+}
+
+function canvasToBlob(canvas) {
+  return new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+
+async function canvasToUint8(canvas) {
+  const blob = await canvasToBlob(canvas);
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+function scaleCanvas(src, size) {
+  const aspect = src.width / src.height;
+  let nw, nh;
+  if (aspect >= 1) { nw = size; nh = Math.round(size / aspect); }
+  else { nh = size; nw = Math.round(size * aspect); }
+  const c = document.createElement('canvas');
+  c.width = nw; c.height = nh;
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, nw, nh);
+  return c;
+}
+
+// ─── App State ───
+const state = {
+  sourceData: null,
+  width: 0,
+  height: 0,
+  bgColor: [255,255,255],
+  regions: [],
+  selectedIndex: -1,
+  tolerance: 35,
+  minArea: 200,
+  feather: 0,
+  borderKeep: 1,
+  padding: 0,
+  scale: 1,
+  fileName: 'icons'
+};
+
+// ─── Modal editor state ───
+const editor = {
+  open: false,
+  regionIndex: -1,
+  ox: 0, oy: 0, lw: 0, lh: 0,
+  localMask: null,
+  localData: null,
+  zoom: 1,
+  tool: 'wand',
+  tolerance: 35,
+  brushSize: 3,
+  drawing: false,
+  undoStack: [],
+  redoStack: [],
+  savedMask: null
+};
+
+// ─── DOM ───
+const $ = id => document.getElementById(id);
+const mainCanvas = $('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const canvasArea = $('canvasArea');
+const canvasWrap = $('canvasWrap');
+const dropZone = $('dropZone');
+const iconList = $('iconList');
+const statusEl = $('status');
+const editModal = $('editModal');
+const editCanvas = $('editCanvas');
+const editCtx = editCanvas.getContext('2d');
+const modalMagCanvas = $('modalMagCanvas');
+const modalMagCtx = modalMagCanvas.getContext('2d');
+const modalMagnifier = $('modalMagnifier');
+
+function setStatus(msg) { statusEl.textContent = msg; }
+
+// ─── Load image ───
+async function loadImage(file) {
+  const bitmap = await createImageBitmap(file);
+  state.width = bitmap.width;
+  state.height = bitmap.height;
+  state.fileName = (file.name || 'icons').replace(/\.[^.]+$/, '');
+
+  mainCanvas.width = state.width;
+  mainCanvas.height = state.height;
+  mainCtx.drawImage(bitmap, 0, 0);
+  state.sourceData = mainCtx.getImageData(0, 0, state.width, state.height).data;
+
+  canvasArea.classList.remove('empty');
+  canvasWrap.classList.remove('hidden');
+  $('btnAnalyze').disabled = false;
+  $('btnExport').disabled = false;
+
+  fitCanvas();
+  autoAnalyze();
+}
+
+function fitCanvas() {
+  const area = canvasArea.getBoundingClientRect();
+  const maxW = area.width - 32;
+  const maxH = area.height - 32;
+  state.scale = Math.min(1, maxW / state.width, maxH / state.height);
+  mainCanvas.style.width = (state.width * state.scale) + 'px';
+  mainCanvas.style.height = (state.height * state.scale) + 'px';
+}
+
+function canvasCoords(e) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / state.scale);
+  const y = Math.floor((e.clientY - rect.top) / state.scale);
+  return [
+    Math.max(0, Math.min(state.width - 1, x)),
+    Math.max(0, Math.min(state.height - 1, y))
+  ];
+}
+
+// ─── Auto analyze ───
+function autoAnalyze() {
+  if (!state.sourceData) return;
+  setStatus('正在分析…');
+  const t0 = performance.now();
+  const { sourceData, width: w, height: h } = state;
+  state.tolerance = +$('tolerance').value;
+  state.minArea = +$('minArea').value;
+
+  state.bgColor = sampleBgColor(sourceData, w, h);
+  const bgMask = buildBackgroundMask(sourceData, w, h, state.bgColor, state.tolerance);
+  const fgMask = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) fgMask[i] = bgMask[i] ? 0 : 1;
+
+  const { labels, count } = findComponents(fgMask, w, h);
+  state.regions = buildRegions(sourceData, w, h, labels, count, state.minArea);
+  state.selectedIndex = state.regions.length ? 0 : -1;
+  renderMain();
+  renderIconList();
+  updateEditButtons();
+  const ms = Math.round(performance.now() - t0);
+  setStatus(`分析完成：检测到 ${state.regions.length} 个图标（${ms}ms）· 背景 RGB(${state.bgColor.join(',')})`);
+}
+
+// ─── Render main canvas ───
+function renderMain() {
+  if (!state.sourceData) return;
+  const { sourceData, width: w, height: h, regions, selectedIndex } = state;
+  const imgData = mainCtx.createImageData(w, h);
+  imgData.data.set(sourceData);
+
+  // Dim non-selected regions slightly in edit mode
+  if (selectedIndex >= 0) {
+    for (let i = 0; i < w * h; i++) {
+      if (regions[selectedIndex].mask[i] === 0) {
+        imgData.data[i*4] = (imgData.data[i*4] * 0.5) | 0;
+        imgData.data[i*4+1] = (imgData.data[i*4+1] * 0.5) | 0;
+        imgData.data[i*4+2] = (imgData.data[i*4+2] * 0.5) | 0;
+      }
+    }
+  }
+  mainCtx.putImageData(imgData, 0, 0);
+
+  // Draw bounding boxes
+  regions.forEach((r, idx) => {
+    const { x, y, w: bw, h: bh } = r.bbox;
+    const sel = idx === selectedIndex;
+    mainCtx.strokeStyle = sel ? '#4dabf7' : '#51cf66';
+    mainCtx.lineWidth = sel ? 3 : 2;
+    mainCtx.setLineDash(sel ? [] : [6, 4]);
+    mainCtx.strokeRect(x + 0.5, y + 0.5, bw - 1, bh - 1);
+    mainCtx.setLineDash([]);
+    mainCtx.fillStyle = sel ? '#4dabf7' : '#51cf66';
+    mainCtx.font = 'bold 14px sans-serif';
+    mainCtx.fillText(String(r.id), x + 4, y + 16);
+  });
+}
+
+function getExportParams() {
+  return {
+    feather: +$('feather').value,
+    borderKeep: +$('borderKeep').value,
+    padding: +$('padding').value
+  };
+}
+
+function renderIconList() {
+  iconList.innerHTML = '';
+  $('iconCount').textContent = state.regions.length;
+  const { feather, borderKeep, padding } = getExportParams();
+
+  state.regions.forEach((r, idx) => {
+    const thumb = extractRegionCanvas(state.sourceData, state.width, state.height, r, borderKeep, feather, padding);
+    const item = document.createElement('div');
+    item.className = 'icon-item' + (idx === state.selectedIndex ? ' selected' : '');
+    item.innerHTML = `<canvas width="${thumb.width}" height="${thumb.height}"></canvas><div class="info"><div class="id">#${r.id}</div><div class="size">${thumb.width}×${thumb.height} · 1:1</div></div>`;
+    item.querySelector('canvas').getContext('2d').drawImage(thumb, 0, 0);
+    item.addEventListener('click', () => selectRegion(idx));
+    item.addEventListener('dblclick', () => { selectRegion(idx); openEditor(); });
+    iconList.appendChild(item);
+  });
+  updateEditButtons();
+}
+
+function selectRegion(idx) {
+  state.selectedIndex = idx;
+  renderMain();
+  renderIconList();
+}
+
+function updateEditButtons() {
+  const has = state.selectedIndex >= 0;
+  $('btnOpenEditor').disabled = !has;
+  $('btnDelete').disabled = !has;
+}
+
+// ─── Modal editor ───
+function openEditor() {
+  if (state.selectedIndex < 0) return;
+  const r = state.regions[state.selectedIndex];
+  const pad = 6;
+  editor.regionIndex = state.selectedIndex;
+  editor.ox = Math.max(0, r.bbox.x - pad);
+  editor.oy = Math.max(0, r.bbox.y - pad);
+  editor.lw = Math.min(state.width - editor.ox, r.bbox.w + pad * 2);
+  editor.lh = Math.min(state.height - editor.oy, r.bbox.h + pad * 2);
+  editor.localMask = new Uint8Array(editor.lw * editor.lh);
+  editor.localData = new Uint8ClampedArray(editor.lw * editor.lh * 4);
+
+  for (let y = 0; y < editor.lh; y++) {
+    for (let x = 0; x < editor.lw; x++) {
+      const gx = editor.ox + x, gy = editor.oy + y;
+      const gi = gy * state.width + gx;
+      const li = y * editor.lw + x;
+      editor.localMask[li] = r.mask[gi] ? 255 : 0;
+      const si = gi * 4;
+      const di = li * 4;
+      editor.localData[di] = state.sourceData[si];
+      editor.localData[di+1] = state.sourceData[si+1];
+      editor.localData[di+2] = state.sourceData[si+2];
+      editor.localData[di+3] = 255;
+    }
+  }
+
+  editor.savedMask = editor.localMask.slice();
+  editor.tool = 'wand';
+  editor.tolerance = +$('tolerance').value;
+  editor.brushSize = Math.max(1, Math.min(8, Math.ceil(Math.min(editor.lw, editor.lh) / 8)));
+  editor.zoom = Math.max(8, Math.min(32, Math.floor(Math.min(880 / editor.lw, 520 / editor.lh))));
+  editor.undoStack = [];
+  editor.redoStack = [];
+  editor.open = true;
+
+  $('modalTitle').textContent = `微调 #${r.id} · 原始 ${r.bbox.w}×${r.bbox.h} · 放大 ${editor.zoom}×`;
+  $('modalTolerance').value = editor.tolerance;
+  $('modalTolVal').textContent = editor.tolerance;
+  $('modalBrushSize').value = editor.brushSize;
+  $('modalBrushVal').textContent = editor.brushSize;
+  document.querySelectorAll('.modal-tool').forEach(b => b.classList.toggle('active', b.dataset.tool === editor.tool));
+  updateModalUndoButtons();
+  editModal.classList.remove('hidden');
+  renderEditorCanvas();
+}
+
+function closeEditor(apply) {
+  if (apply && editor.regionIndex >= 0) {
+    const r = state.regions[editor.regionIndex];
+    for (let y = 0; y < editor.lh; y++) {
+      for (let x = 0; x < editor.lw; x++) {
+        const gx = editor.ox + x, gy = editor.oy + y;
+        r.mask[gy * state.width + gx] = editor.localMask[y * editor.lw + x] > 0 ? 255 : 0;
+      }
+    }
+    updateBbox(r, state.width, state.height);
+    renderMain();
+    renderIconList();
+    setStatus(`图标 #${r.id} 微调已保存`);
+  }
+  editor.open = false;
+  editModal.classList.add('hidden');
+  hideModalMagnifier();
+}
+
+function renderEditorCanvas() {
+  const { lw, lh, zoom, localMask, localData } = editor;
+  editCanvas.width = lw * zoom;
+  editCanvas.height = lh * zoom;
+  editCtx.imageSmoothingEnabled = false;
+
+  const img = editCtx.createImageData(lw, lh);
+  for (let i = 0; i < lw * lh; i++) {
+    const a = localMask[i];
+    img.data[i*4] = localData[i*4];
+    img.data[i*4+1] = localData[i*4+1];
+    img.data[i*4+2] = localData[i*4+2];
+    img.data[i*4+3] = a;
+  }
+
+  const tmp = document.createElement('canvas');
+  tmp.width = lw; tmp.height = lh;
+  tmp.getContext('2d').putImageData(img, 0, 0);
+  editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+  editCtx.drawImage(tmp, 0, 0, lw * zoom, lh * zoom);
+
+  // pixel grid when zoomed
+  if (zoom >= 8) {
+    editCtx.strokeStyle = 'rgba(255,255,255,.08)';
+    editCtx.lineWidth = 1;
+    for (let x = 0; x <= lw; x++) {
+      editCtx.beginPath(); editCtx.moveTo(x * zoom + .5, 0); editCtx.lineTo(x * zoom + .5, lh * zoom); editCtx.stroke();
+    }
+    for (let y = 0; y <= lh; y++) {
+      editCtx.beginPath(); editCtx.moveTo(0, y * zoom + .5); editCtx.lineTo(lw * zoom, y * zoom + .5); editCtx.stroke();
+    }
+  }
+}
+
+function editorCoords(e) {
+  const rect = editCanvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / editor.zoom);
+  const y = Math.floor((e.clientY - rect.top) / editor.zoom);
+  return [
+    Math.max(0, Math.min(editor.lw - 1, x)),
+    Math.max(0, Math.min(editor.lh - 1, y))
+  ];
+}
+
+function pushModalUndo() {
+  editor.undoStack.push(editor.localMask.slice());
+  editor.redoStack = [];
+  if (editor.undoStack.length > 40) editor.undoStack.shift();
+  updateModalUndoButtons();
+}
+
+function updateModalUndoButtons() {
+  $('modalUndo').disabled = editor.undoStack.length === 0;
+  $('modalRedo').disabled = editor.redoStack.length === 0;
+}
+
+function modalApplyWand(x, y, addMode) {
+  pushModalUndo();
+  editor.localMask = floodFillMask(
+    editor.localData, editor.lw, editor.lh,
+    x, y, editor.tolerance, addMode, editor.localMask
+  );
+  renderEditorCanvas();
+}
+
+function modalApplyBrush(x, y, erase) {
+  const bs = editor.brushSize;
+  for (let dy = -bs; dy <= bs; dy++) {
+    for (let dx = -bs; dx <= bs; dx++) {
+      if (dx * dx + dy * dy > bs * bs) continue;
+      const px = x + dx, py = y + dy;
+      if (px < 0 || py < 0 || px >= editor.lw || py >= editor.lh) continue;
+      editor.localMask[py * editor.lw + px] = erase ? 0 : 255;
+    }
+  }
+}
+
+function showModalMagnifier(e) {
+  const [cx, cy] = editorCoords(e);
+  const zoom = 10, half = 8;
+  modalMagCtx.fillStyle = '#111';
+  modalMagCtx.fillRect(0, 0, 168, 168);
+  modalMagCtx.imageSmoothingEnabled = false;
+  const { lw, localMask, localData } = editor;
+
+  for (let dy = -half; dy <= half; dy++) {
+    for (let dx = -half; dx <= half; dx++) {
+      const px = cx + dx, py = cy + dy;
+      const mx = (dx + half) * zoom, my = (dy + half) * zoom;
+      if (px < 0 || py < 0 || px >= lw || py >= editor.lh) continue;
+      const li = py * lw + px;
+      const a = localMask[li] / 255;
+      modalMagCtx.fillStyle = `rgba(${localData[li*4]},${localData[li*4+1]},${localData[li*4+2]},${0.25 + a * 0.75})`;
+      modalMagCtx.fillRect(mx, my, zoom, zoom);
+    }
+  }
+  modalMagCtx.strokeStyle = '#4dabf7';
+  modalMagCtx.beginPath();
+  modalMagCtx.moveTo(84, 0); modalMagCtx.lineTo(84, 168);
+  modalMagCtx.moveTo(0, 84); modalMagCtx.lineTo(168, 84);
+  modalMagCtx.stroke();
+
+  modalMagnifier.style.display = 'block';
+  let left = e.clientX + 18, top = e.clientY + 18;
+  if (left + 180 > window.innerWidth) left = e.clientX - 190;
+  if (top + 180 > window.innerHeight) top = e.clientY - 190;
+  modalMagnifier.style.left = left + 'px';
+  modalMagnifier.style.top = top + 'px';
+}
+
+function hideModalMagnifier() { modalMagnifier.style.display = 'none'; }
+
+// ─── Export ───
+async function exportZip() {
+  if (!state.regions.length) return;
+  setStatus('正在导出…');
+  const { feather, borderKeep, padding } = getExportParams();
+  const extraSizes = [...document.querySelectorAll('#sizeChecks input:checked')].map(el => +el.value);
+  const files = [];
+
+  for (const r of state.regions) {
+    const base = extractRegionCanvas(state.sourceData, state.width, state.height, r, borderKeep, feather, padding);
+    const w1 = base.width, h1 = base.height;
+    files.push({
+      name: `${state.fileName}_${r.id}_${w1}x${h1}.png`,
+      data: await canvasToUint8(base)
+    });
+    for (const sz of extraSizes) {
+      const scaled = scaleCanvas(base, sz);
+      files.push({
+        name: `${state.fileName}_${r.id}_${scaled.width}x${scaled.height}_from${w1}.png`,
+        data: await canvasToUint8(scaled)
+      });
+    }
+  }
+
+  const zip = createZip(files);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(zip);
+  a.download = `${state.fileName}_icons.zip`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus(`已导出 ${files.length} 个 PNG（每个图标含 1:1 原始尺寸${extraSizes.length ? ' + 放大版' : ''}）`);
+}
+
+// ─── Events ───
+$('btnOpen').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => { if (e.target.files[0]) loadImage(e.target.files[0]); };
+$('btnAnalyze').onclick = autoAnalyze;
+$('btnExport').onclick = exportZip;
+
+$('tolerance').oninput = e => { $('tolVal').textContent = e.target.value; };
+$('feather').oninput = e => { $('featherVal').textContent = e.target.value; renderIconList(); };
+$('borderKeep').oninput = e => { $('borderKeepVal').textContent = e.target.value; renderIconList(); };
+$('padding').onchange = () => renderIconList();
+
+$('btnOpenEditor').onclick = openEditor;
+$('modalApply').onclick = () => closeEditor(true);
+$('modalCancel').onclick = () => closeEditor(false);
+$('modalCloseBtn').onclick = () => closeEditor(false);
+
+document.querySelectorAll('.modal-tool').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.modal-tool').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    editor.tool = btn.dataset.tool;
+  };
+});
+
+$('modalTolerance').oninput = e => {
+  editor.tolerance = +e.target.value;
+  $('modalTolVal').textContent = e.target.value;
+};
+$('modalBrushSize').oninput = e => {
+  editor.brushSize = +e.target.value;
+  $('modalBrushVal').textContent = e.target.value;
+};
+
+$('modalUndo').onclick = () => {
+  if (!editor.undoStack.length) return;
+  editor.redoStack.push(editor.localMask.slice());
+  editor.localMask = editor.undoStack.pop();
+  updateModalUndoButtons();
+  renderEditorCanvas();
+};
+$('modalRedo').onclick = () => {
+  if (!editor.redoStack.length) return;
+  editor.undoStack.push(editor.localMask.slice());
+  editor.localMask = editor.redoStack.pop();
+  updateModalUndoButtons();
+  renderEditorCanvas();
+};
+
+$('btnDelete').onclick = () => {
+  if (state.selectedIndex < 0) return;
+  state.regions.splice(state.selectedIndex, 1);
+  state.regions.forEach((r, i) => r.id = i + 1);
+  state.selectedIndex = Math.min(state.selectedIndex, state.regions.length - 1);
+  updateEditButtons();
+  renderMain(); renderIconList();
+  setStatus(`已删除，剩余 ${state.regions.length} 个图标`);
+};
+
+// Drag & drop
+dropZone.onclick = () => $('fileInput').click();
+canvasArea.addEventListener('dragover', e => { e.preventDefault(); });
+canvasArea.addEventListener('drop', e => {
+  e.preventDefault();
+  if (e.dataTransfer.files[0]) loadImage(e.dataTransfer.files[0]);
+});
+
+// Main canvas: click to select region only
+mainCanvas.addEventListener('click', e => {
+  if (!state.sourceData) return;
+  const [x, y] = canvasCoords(e);
+  for (let i = state.regions.length - 1; i >= 0; i--) {
+    const b = state.regions[i].bbox;
+    if (x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h) {
+      selectRegion(i);
+      return;
+    }
+  }
+});
+
+// Modal canvas interaction
+editCanvas.addEventListener('mousedown', e => {
+  if (!editor.open) return;
+  const [x, y] = editorCoords(e);
+  const addMode = !(e.button === 2 || e.altKey);
+  if (editor.tool === 'wand') {
+    modalApplyWand(x, y, addMode);
+  } else {
+    pushModalUndo();
+    editor.drawing = true;
+    modalApplyBrush(x, y, editor.tool === 'eraser');
+    renderEditorCanvas();
+  }
+});
+
+editCanvas.addEventListener('mousemove', e => {
+  if (!editor.open) return;
+  showModalMagnifier(e);
+  if (!editor.drawing) return;
+  const [x, y] = editorCoords(e);
+  modalApplyBrush(x, y, editor.tool === 'eraser');
+  renderEditorCanvas();
+});
+
+editCanvas.addEventListener('mouseup', () => { editor.drawing = false; });
+editCanvas.addEventListener('mouseleave', () => { editor.drawing = false; hideModalMagnifier(); });
+editCanvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (editor.tool === 'wand') {
+    const [x, y] = editorCoords(e);
+    modalApplyWand(x, y, false);
+  }
+});
+
+editCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -2 : 2;
+  editor.zoom = Math.max(4, Math.min(48, editor.zoom + delta));
+  $('modalTitle').textContent = `微调 #${state.regions[editor.regionIndex].id} · 放大 ${editor.zoom}×`;
+  renderEditorCanvas();
+}, { passive: false });
+
+editModal.addEventListener('click', e => {
+  if (e.target === editModal) closeEditor(false);
+});
+
+document.addEventListener('keydown', e => {
+  if (!editor.open) return;
+  if (e.key === 'Escape') closeEditor(false);
+});
+
+window.addEventListener('resize', () => { if (state.sourceData) fitCanvas(); });
+
+})();
+</script>
+</body>
+</html>
