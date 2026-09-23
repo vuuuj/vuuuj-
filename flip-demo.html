@@ -3,204 +3,1015 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>翻转卡片 Demo</title>
+<title>翻转卡片参数 Demo</title>
 <style>
 :root{--bg:#0f1117;--card:#171b26;--card2:#1f2637;--line:#2a3348;--text:#e8eaf0;--muted:#9aa3b2;--ok:#34d399;--blue:#38bdf8;--red:#e74c3c;--purple:#a855f7}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.5;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:40px 16px}
 h1{font-size:22px;margin-bottom:8px}
-.sub{color:var(--muted);font-size:13px;margin-bottom:30px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:30px;text-align:center}
 
-.wrap{width:100%;max-width:400px}
+.wrap{width:100%;max-width:420px}
 
 /* ===== 翻转核心 CSS ===== */
-.flip-wrap{perspective:1200px}
+.stage{width:100%;perspective:1200px;cursor:default}
+.tilt{transform-style:preserve-3d;transition:transform .12s ease-out}
 .flip-inner{
   position:relative;
   transform-style:preserve-3d;
-  transition:height .4s ease;
 }
 .flip-face{
   position:absolute;top:0;left:0;right:0;
   backface-visibility:hidden;
   -webkit-backface-visibility:hidden;
 }
-.flip-back{transform:rotateY(180deg)}
-
-/* 关键帧：抬起 → 旋转 → 放下 */
-@keyframes flipR{
-  0%  {transform:translateY(0) scale(1) rotateY(0deg)}
-  20% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
-  80% {transform:translateY(-30px) scale(1.04) rotateY(180deg)}
-  100%{transform:translateY(0) scale(1) rotateY(180deg)}
-}
-@keyframes flipL{
-  0%  {transform:translateY(0) scale(1) rotateY(0deg)}
-  20% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
-  80% {transform:translateY(-30px) scale(1.04) rotateY(-180deg)}
-  100%{transform:translateY(0) scale(1) rotateY(-180deg)}
-}
-@keyframes flipBackR{
-  0%  {transform:translateY(0) scale(1) rotateY(180deg)}
-  20% {transform:translateY(-30px) scale(1.04) rotateY(180deg)}
-  80% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
-  100%{transform:translateY(0) scale(1) rotateY(0deg)}
-}
-@keyframes flipBackL{
-  0%  {transform:translateY(0) scale(1) rotateY(-180deg)}
-  20% {transform:translateY(-30px) scale(1.04) rotateY(-180deg)}
-  80% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
-  100%{transform:translateY(0) scale(1) rotateY(0deg)}
-}
-.flip-inner.anim-r{animation:flipR .9s cubic-bezier(.4,0,.2,1) forwards}
-.flip-inner.anim-l{animation:flipL .9s cubic-bezier(.4,0,.2,1) forwards}
-.flip-inner.anim-back-r{animation:flipBackR .9s cubic-bezier(.4,0,.2,1) forwards}
-.flip-inner.anim-back-l{animation:flipBackL .9s cubic-bezier(.4,0,.2,1) forwards}
-.flip-inner.flipped-r{transform:rotateY(180deg)}
-.flip-inner.flipped-l{transform:rotateY(-180deg)}
 
 /* ===== 卡片样式 ===== */
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+/* 文本不可选择 + 默认光标：避免指针在 文本I形/箭头 之间来回跳 */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.2);user-select:none;-webkit-user-select:none;cursor:default}
+/* 可点击翻转热区：周边包边变绿（光标由 JS 同步，规避 3D 倾斜下的命中竞态） */
+.stage.flip-hot .flip-face{border-color:var(--ok);box-shadow:0 0 0 2px rgba(52,211,153,.45),0 4px 14px rgba(0,0,0,.35)}
 .card h3{font-size:16px;margin-bottom:12px}
 .card p{font-size:14px;color:var(--muted);line-height:1.7}
 
 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}
 .card-head h3{margin:0;font-size:16px}
 .icon-btn{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:inherit}
-.icon-btn:hover{border-color:var(--ok);color:var(--ok)}
+.icon-btn.zh{border-color:var(--ok);color:var(--ok)}
 
-.btn{display:block;width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;cursor:pointer;color:#fff;text-align:center;margin-top:10px;font-family:inherit}
+.btn{display:block;width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;cursor:pointer;color:#fff;text-align:center;margin-top:10px;font-family:inherit;transition:filter .2s}
+.btn.zh{filter:brightness(1.1)}
 .btn.green{background:linear-gradient(135deg,#10b981,#059669)}
 .btn.blue{background:linear-gradient(135deg,#38bdf8,#0284c7)}
 .btn.purple{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+.btn.red{background:linear-gradient(135deg,#f87171,#dc2626)}
+.btn-row{display:flex;gap:8px}
+.btn-row .btn{margin-top:8px;font-size:13px;padding:10px 6px}
 
-.field{width:100%;padding:10px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);margin-top:8px}
+.field{width:100%;padding:9px 10px;font-size:14px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);font-family:inherit}
 .hint{font-size:12px;color:var(--muted);margin-top:8px}
 
-.checkbox-row{font-size:14px;margin:10px 0}
-.checkbox-row label{margin-right:14px;cursor:pointer}
+.row{margin:9px 0}
+.row>label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.row .field{margin-top:0}
 
-.slider-row{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:14px}
-.slider-row input[type=range]{flex:1;accent-color:var(--ok)}
+.checkbox-row{font-size:13px;margin:8px 0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.checkbox-row label{cursor:default;display:flex;align-items:center;gap:5px}
+.checkbox-row label.zh{color:var(--ok)}
+.checkbox-row input{accent-color:var(--ok);cursor:default}
 
-.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;margin:0 4px}
+.slider-row{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:13px}
+.slider-row input[type=range]{flex:1;accent-color:var(--ok);min-width:0}
+.slider-row .val{min-width:54px;text-align:right;color:var(--blue);font-variant-numeric:tabular-nums;font-size:12px}
+
+.summary{font-size:12px;color:var(--muted);background:var(--card2);border:1px dashed var(--line);border-radius:8px;padding:7px 10px;margin-top:10px;word-break:break-all}
+
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin:2px 4px 2px 0}
 .tag.red{background:var(--red);color:#fff}
 .tag.blue{background:var(--blue);color:#fff}
 .tag.green{background:var(--ok);color:#fff}
 .tag.purple{background:var(--purple);color:#fff}
+
+/* ===== 导出弹窗 ===== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:50;padding:20px}
+.overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:680px;width:100%;max-height:82vh;display:flex;flex-direction:column;padding:16px}
+.modal h3{font-size:15px;margin-bottom:10px}
+.modal pre{overflow:auto;background:#0b0d13;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:12px;line-height:1.55;flex:1;color:#8ee6b8;white-space:pre}
+.modal .btn-row{margin-top:10px;justify-content:flex-end}
+.modal .btn{width:auto;margin-top:0;padding:9px 18px}
 </style>
 </head>
 <body>
 
-<h1>🔄 翻转卡片 Demo</h1>
-<p class="sub">点击按钮体验：抬起 → 旋转 → 放下（随机向左/向右）</p>
+<h1>🔄 翻转卡片参数 Demo</h1>
+<p class="sub">版本 2.0 · 正面调基础参数、背面调高级/创意参数 · 点击卡片或按钮即可翻转 · 所有修改实时生效</p>
 
-<div class="wrap">
-  <div class="flip-wrap">
-    <div class="flip-inner" id="flipInner">
+<div class="wrap" id="wrap">
+  <div class="stage" id="stage">
+    <div class="tilt" id="tilt">
+      <div class="flip-inner" id="flipInner">
 
-      <!-- 正面 -->
-      <div class="flip-face flip-front card">
-        <div class="card-head">
-          <h3>⚙️ 正面 · 基本设置</h3>
-          <button class="icon-btn" onclick="flipCard()">前往高级设置 →</button>
+        <!-- 正面：基础翻转参数 -->
+        <div class="flip-face flip-front card">
+          <div class="card-head">
+            <h3>⚙️ 基础翻转参数</h3>
+            <button class="icon-btn" data-act="flip">高级参数 →</button>
+          </div>
+
+          <div class="slider-row">
+            <span>翻转时长</span>
+            <input type="range" id="sDur" min="0.3" max="2" step="0.1" value="0.9">
+            <span class="val" id="vDur">0.9s</span>
+          </div>
+
+          <div class="row">
+            <label>缓动函数</label>
+            <select class="field" id="selEase">
+              <option value="smooth">平滑 ease-in-out</option>
+              <option value="out">缓出 ease-out</option>
+              <option value="in">缓入 ease-in</option>
+              <option value="overshoot">回弹 overshoot</option>
+              <option value="strong">强回弹 strong bounce</option>
+              <option value="linear">线性 linear</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label>翻转方向（正面 → 背面）</label>
+            <select class="field" id="selDir">
+              <option value="random">🎲 随机向左 / 向右</option>
+              <option value="r">→ 向右翻（正角度）</option>
+              <option value="l">← 向左翻（负角度）</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label>动画预设</label>
+            <select class="field" id="selPreset">
+              <option value="classic"> classic · 经典抬升翻转</option>
+              <option value="inplace"> inplace · 原地旋转（不抬起）</option>
+              <option value="rebound"> rebound · 回弹落地</option>
+              <option value="toss"> toss · 高抛下落</option>
+              <option value="custom"> custom · 自定义（手动调参）</option>
+            </select>
+          </div>
+
+          <div class="slider-row">
+            <span>抬起高度</span>
+            <input type="range" id="sLift" min="0" max="60" step="1" value="30">
+            <span class="val" id="vLift">30px</span>
+          </div>
+
+          <div class="slider-row">
+            <span>抬起缩放</span>
+            <input type="range" id="sScale" min="1" max="1.12" step="0.01" value="1.04">
+            <span class="val" id="vScale">1.04×</span>
+          </div>
+
+          <div class="summary" id="sumLine">参数摘要加载中…</div>
+
+          <button class="btn green" data-act="flip">🔄 翻转卡片</button>
+          <p class="hint">点击卡片空白区域（鼠标变手型、绿色包边时）也可翻转；控件区不会触发翻转。</p>
         </div>
-        <div class="checkbox-row">
-          <label><input type="checkbox" checked> 深色模式</label>
-          <label><input type="checkbox" checked> 通知推送</label>
+
+        <!-- 背面：高级参数 + 创意玩法 -->
+        <div class="flip-face flip-back card">
+          <div class="card-head">
+            <h3>🎨 高级参数 & 创意玩法</h3>
+            <button class="icon-btn" data-act="flip">← 返回基础参数</button>
+          </div>
+
+          <div class="slider-row">
+            <span>透视距离</span>
+            <input type="range" id="sPersp" min="400" max="2400" step="50" value="1200">
+            <span class="val" id="vPersp">1200px</span>
+          </div>
+
+          <div class="row">
+            <label>旋转轴</label>
+            <select class="field" id="selAxis">
+              <option value="y">左右翻 rotateY</option>
+              <option value="x">上下翻 rotateX</option>
+              <option value="diag">斜向翻 ↘ rotate3d(1,1,0)</option>
+              <option value="diag2">斜向翻 ↗ rotate3d(1,-1,0)</option>
+            </select>
+          </div>
+
+          <div class="row">
+            <label>翻转圈数</label>
+            <select class="field" id="selTurns">
+              <option value="1">半圈 · 180°</option>
+              <option value="3">一圈半 · 540°（多转一圈）</option>
+            </select>
+          </div>
+
+          <div class="slider-row">
+            <span>阴影强度</span>
+            <input type="range" id="sShadow" min="0" max="60" step="1" value="30">
+            <span class="val" id="vShadow">30</span>
+          </div>
+
+          <div class="row">
+            <label>阴影处理（斜向翻转防黑影）</label>
+            <select class="field" id="selShadowMode">
+              <option value="const">方案1 · 阴影恒定（推荐）</option>
+              <option value="none">完全无阴影</option>
+              <option value="hide">翻转时隐藏阴影</option>
+              <option value="anim">阴影随动画变化（斜向会闪黑）</option>
+            </select>
+          </div>
+
+          <div class="slider-row">
+            <span>抬起阶段</span>
+            <input type="range" id="sLiftAt" min="0" max="40" step="1" value="20">
+            <span class="val" id="vLiftAt">20%</span>
+          </div>
+
+          <div class="slider-row">
+            <span>旋转阶段</span>
+            <input type="range" id="sRotAt" min="50" max="100" step="1" value="80">
+            <span class="val" id="vRotAt">80%</span>
+          </div>
+
+          <div class="slider-row">
+            <span>自动翻转</span>
+            <input type="range" id="sAutoSec" min="0" max="10" step="1" value="0">
+            <span class="val" id="vAutoSec">关</span>
+          </div>
+
+          <div class="row"><label>💡 创意玩法开关</label></div>
+          <div class="checkbox-row">
+            <label><input type="checkbox" id="cbTilt" checked> 悬停 3D 倾斜</label>
+            <label><input type="checkbox" id="cbClick" checked> 点击卡片翻转</label>
+            <label><input type="checkbox" id="cbSound" checked> 翻转音效</label>
+            <label><input type="checkbox" id="cbAutoH" checked> 正背面高度自适应</label>
+          </div>
+
+          <div style="margin-top:6px">
+            <span class="tag green">抬升 keyframes</span>
+            <span class="tag blue">动态透视</span>
+            <span class="tag purple">多旋转轴</span>
+            <span class="tag red">540° 翻滚</span>
+          </div>
+
+          <button class="btn green" data-act="flip">🔄 翻转卡片</button>
+          <div class="btn-row">
+            <button class="btn blue" data-act="random">🎲 随机参数</button>
+            <button class="btn purple" data-act="export">📋 导出 CSS</button>
+          </div>
+          <button class="btn red" data-act="reset">↩ 恢复默认参数</button>
         </div>
-        <div class="slider-row">
-          <span>音量</span>
-          <input type="range" min="0" max="100" value="70">
-          <span>70%</span>
-        </div>
-        <select class="field">
-          <option>🔔 默认铃声</option>
-          <option>🎵 轻音乐</option>
-          <option>📢 响亮铃声</option>
-        </select>
-        <p class="hint">正面放的是基础配置项，内容较短。</p>
-        <button class="btn green">💾 保存设置</button>
+
       </div>
+    </div>
+  </div>
+</div>
 
-      <!-- 背面（内容故意更多，演示高度自适应） -->
-      <div class="flip-face flip-back card">
-        <div class="card-head">
-          <h3>🎨 背面 · 高级设置</h3>
-          <button class="icon-btn" onclick="flipCard()">← 返回基本设置</button>
-        </div>
-        <div class="checkbox-row">
-          <label><input type="checkbox" checked> 启用实验功能</label>
-          <label><input type="checkbox"> 调试模式</label>
-        </div>
-        <div class="slider-row">
-          <span>延迟(ms)</span>
-          <input type="range" min="0" max="2000" step="100" value="500">
-          <span>500</span>
-        </div>
-        <p style="font-size:13px;color:var(--muted);margin:8px 0">
-          这里的内容故意更多，卡片高度会随内容变化。翻转时容器会先平滑过渡到目标高度，再完成旋转动画。
-        </p>
-        <div style="margin:10px 0">
-          <span class="tag red">实验</span>
-          <span class="tag blue">Beta</span>
-          <span class="tag green">推荐</span>
-          <span class="tag purple">新功能</span>
-        </div>
-        <select class="field">
-          <option>方案 A - 保守</option>
-          <option>方案 B - 激进</option>
-          <option>方案 C - 自动</option>
-        </select>
-        <div class="checkbox-row">
-          <label><input type="checkbox" checked> 自动更新</label>
-          <label><input type="checkbox" checked> 发送遥测</label>
-          <label><input type="checkbox"> 强制刷新</label>
-        </div>
-        <button class="btn purple">🚀 应用高级设置</button>
-        <button class="btn blue" style="margin-top:6px">📋 导出配置</button>
-      </div>
-
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3>📋 当前翻转参数生成的 CSS</h3>
+    <pre id="cssOut"></pre>
+    <div class="btn-row">
+      <button class="btn blue" onclick="copyCSS()">复制</button>
+      <button class="btn purple" onclick="closeExport()">关闭</button>
     </div>
   </div>
 </div>
 
 <script>
-function flipCard(){
-  var inner = document.getElementById('flipInner');
-  if(inner.dataset.flipping === '1') return;
-  inner.dataset.flipping = '1';
+/* =====================================================================
+   flip-demo 经验备忘（本会话踩坑沉淀，改代码前先看）
+   ---------------------------------------------------------------------
+   1) 斜向翻转「黑矩」根因 = @keyframes 里动画 box-shadow + rotate3d(1,±1,0)，
+      不是 will-change（去 will-change 不够）。探针：阴影恒定/完全无阴影 → R=0。
+      默认 shadowMode='const'（方案1·阴影恒定）：keyframes 不写 box-shadow。
+      anim 才是会闪黑的对照；none/hide 为备选删阴影手段。
+   2) 3D 倾斜 + 背面 180° 下 elementFromPoint 会打到 flip-inner 等祖先（脱靶）。
+      光标/热区/翻转判定必须走布局坐标热区表 zoneAt，不能只靠 :hover/命中测试。
+      stage click：热区命中且 target 不是控件本身/后代时，按 zone 补触发
+      （nativeHit 不可写成 target.contains(z.el)，否则祖先命中会漏触发）。
+   3) 翻转方向光标按 axis 定、不依赖 pendingFlip：diag→nesw，diag2→nwse，
+      x→ns，y/default→ew。方案定了指针就定了。
+   4) pendingFlip：applyParams/翻转结束时预生成下一次正负号，1 次操作=1 次随机。
+   5) 单卡工厂 createCard：Q=wrap 内查 id；kfStyle 每卡一份，动画名 kfTag 后缀；
+      按钮用 data-act + wrap 委托；dispose 清 autoTimer/pointerup/kfStyle。
+      （曾做过多卡方案对照，已按需求移除；默认仍单卡 + shadowMode。）
+   6) 音效默认开；.flip-inner 不要 will-change:transform。
+   7) 测试：style[data-kf] 选 keyframes；diag 光标与 dir 无关。
+   ===================================================================== */
+var EASES = {
+  smooth:'cubic-bezier(.4,0,.2,1)',
+  out:'cubic-bezier(.215,.61,.355,1)',
+  in:'cubic-bezier(.55,.055,.675,.19)',
+  overshoot:'cubic-bezier(.34,1.56,.64,1)',
+  strong:'cubic-bezier(.68,-.55,.265,1.55)',
+  linear:'linear'
+};
 
-  var isFlipped = inner.classList.contains('flipped-r') || inner.classList.contains('flipped-l');
+var PRESETS = {
+  classic:{lift:30,scale:1.04,liftAt:20,rotAt:80,ease:'smooth'},
+  inplace:{lift:0,scale:1,liftAt:0,rotAt:100,ease:'smooth'},
+  rebound:{lift:30,scale:1.04,liftAt:25,rotAt:75,ease:'overshoot'},
+  toss:{lift:55,scale:1.1,liftAt:30,rotAt:75,ease:'out'}
+};
 
-  var targetFace = isFlipped ? inner.querySelector('.flip-front') : inner.querySelector('.flip-back');
-  inner.style.height = targetFace.offsetHeight + 'px';
+var DEFAULTS = {
+  dur:0.9, ease:'smooth', dir:'random', preset:'classic',
+  lift:30, scale:1.04, liftAt:20, rotAt:80,
+  perspective:1200, axis:'y', turns:1, shadow:30,
+  shadowMode:'const',
+  tilt:true, clickFlip:true, sound:true, autoHeight:true, autoSec:0
+};
 
-  // 清掉旧动画类
-  inner.className = 'flip-inner';
-  void inner.offsetWidth; // 强制回流，重启动画
+var KF_SEQ = 0;
+var actx = null;
 
-  var dir = Math.random() < 0.5 ? 'r' : 'l';
-  if(!isFlipped){
-    inner.classList.add('anim-' + dir);
+function createCard(wrap, initial){
+var params = Object.assign({}, DEFAULTS, initial || {});
+var keepAxis = (initial && initial.axis) ? initial.axis : null;
+function Q(id){ return wrap.querySelector('#' + id); }
+
+var stage = wrap.querySelector('.stage');
+var tilt = wrap.querySelector('.tilt');
+var inner = wrap.querySelector('.flip-inner');
+var frontEl = inner.querySelector('.flip-front');
+var backEl = inner.querySelector('.flip-back');
+var kfStyle = document.createElement('style');
+kfStyle.setAttribute('data-kf', 'card');
+document.head.appendChild(kfStyle);
+var kfTag = '-c' + (KF_SEQ++);
+
+/* 克隆节点会带上源卡片的运行时痕迹：清掉再初始化 */
+stage.classList.remove('flip-hot');
+var zhEls = wrap.querySelectorAll('.zh');
+for(var zi = 0; zi < zhEls.length; zi++) zhEls[zi].classList.remove('zh');
+stage.style.removeProperty('cursor');
+frontEl.style.removeProperty('cursor');
+backEl.style.removeProperty('cursor');
+tilt.style.transform = '';
+inner.style.animation = 'none';
+inner.style.transform = '';
+inner.style.height = '';
+
+var sideSign = 0;   // 0=正面, +1/-1=背面（记录翻过去的方向）
+var animating = false;
+var autoTimer = null;
+
+/* ===== 动态 keyframes 生成 ===== */
+function rotStr(deg){
+  if(params.axis === 'x') return 'rotateX(' + deg + 'deg)';
+  if(params.axis === 'diag') return 'rotate3d(1,1,0,' + deg + 'deg)';
+  if(params.axis === 'diag2') return 'rotate3d(1,-1,0,' + deg + 'deg)';
+  return 'rotateY(' + deg + 'deg)';
+}
+function st(tf, shd){ return 'transform:' + tf + (shd ? ';box-shadow:' + shd : ''); }
+
+function applyShadowMode(){
+  var mode = params.shadowMode || 'const';
+  if(mode === 'none'){
+    frontEl.style.boxShadow = 'none';
+    backEl.style.boxShadow = 'none';
+    inner.style.boxShadow = 'none';
+  } else if(animating && mode === 'hide'){
+    frontEl.style.boxShadow = 'none';
+    backEl.style.boxShadow = 'none';
+    inner.style.boxShadow = 'none';
   } else {
-    inner.classList.add('anim-back-' + dir);
+    frontEl.style.removeProperty('box-shadow');
+    backEl.style.removeProperty('box-shadow');
+    inner.style.removeProperty('box-shadow');
   }
-
-  // 动画结束后标记最终状态
-  setTimeout(function(){
-    inner.className = 'flip-inner';
-    if(!isFlipped){
-      inner.classList.add(dir === 'r' ? 'flipped-r' : 'flipped-l');
-    }
-    inner.dataset.flipping = '0';
-  }, 900);
 }
 
-window.addEventListener('load', function(){
-  var inner = document.getElementById('flipInner');
-  var front = inner.querySelector('.flip-front');
-  setTimeout(function(){ inner.style.height = front.offsetHeight + 'px'; }, 50);
+function genKeyframes(){
+  var T = params.turns * 180;
+  var L = params.lift, S = params.scale;
+  var la = params.liftAt, ra = params.rotAt;
+  var sh = params.shadow;
+  var mode = params.shadowMode || 'const';
+  var base = '0 2px 8px rgba(0,0,0,.2)';
+  var lit = '0 ' + (6 + sh * 0.6).toFixed(0) + 'px ' + (14 + sh * 1.2).toFixed(0) +
+            'px rgba(0,0,0,' + Math.min(.65, .12 + sh / 100).toFixed(2) + ')';
+  function rest(d){ return 'translateY(0) scale(1) ' + rotStr(d); }
+  function lift(d){ return 'translateY(' + (-L) + 'px) scale(' + S + ') ' + rotStr(d); }
+
+  /* 方案1·阴影恒定（推荐）：keyframes 不写 box-shadow，避免斜向黑矩 */
+  function frames(seq){
+    return seq.map(function(f){
+      var shd = '';
+      if(mode === 'anim') shd = f[2];
+      else if(mode === 'none') shd = 'none';
+      return f[0] + '%{' + st(f[1], shd) + '}';
+    }).join('');
+  }
+  function fwd(sign){
+    var t = sign * T;
+    var seq = [['0', rest(0), base]];
+    if(la > 0) seq.push([String(la), lift(0), lit]);
+    if(ra > 0 && ra < 100) seq.push([String(ra), lift(t), lit]);
+    seq.push(['100', rest(t), base]);
+    return seq;
+  }
+  function back(sign){
+    var t = sign * T;
+    var seq = [['0', rest(t), base]];
+    if(la > 0) seq.push([String(la), lift(t), lit]);
+    if(ra < 100) seq.push([String(ra), lift(0), lit]);
+    seq.push(['100', rest(0), base]);
+    return seq;
+  }
+
+  var css = '';
+  css += '@keyframes kf-fwd-pos' + kfTag + '{' + frames(fwd(1)) + '}\n';
+  css += '@keyframes kf-fwd-neg' + kfTag + '{' + frames(fwd(-1)) + '}\n';
+  css += '@keyframes kf-back-pos' + kfTag + '{' + frames(back(1)) + '}\n';
+  css += '@keyframes kf-back-neg' + kfTag + '{' + frames(back(-1)) + '}\n';
+  kfStyle.textContent = css;
+}
+
+function applyResting(){
+  inner.style.transform = sideSign ? rotStr(sideSign * params.turns * 180) : 'none';
+}
+
+function idleHeight(){
+  if(animating || !params.autoHeight) return;
+  inner.style.height = (sideSign === 0 ? frontEl : backEl).offsetHeight + 'px';
+}
+
+function applyParams(){
+  stage.style.perspective = params.perspective + 'px';
+  backEl.style.transform = rotStr(180);
+  genKeyframes();
+  applyShadowMode();
+  genNextFlip(); /* 设置变更 → 预生成下一次翻转结果 */
+  if(!animating) applyResting();
+  idleHeight();
+  updateSummary();
+  if(mouseIn) evalAt(lastMX, lastMY);
+}
+
+/* ===== 摘要 ===== */
+function selText(id){ var s = Q(id); return s.selectedOptions[0].textContent.trim(); }
+function updateSummary(){
+  var dirMap = {random:'随机方向', r:'向右翻', l:'向左翻'};
+  var axisMap = {y:'rotateY', x:'rotateX', diag:'rotate3d', diag2:'rotate3d'};
+  Q('sumLine').textContent =
+    params.dur.toFixed(1) + 's · ' + selText('selEase').replace(/^[^·]*·\s*/, '') +
+    ' · ' + dirMap[params.dir] + ' · 抬起 ' + params.lift + 'px ×' + params.scale.toFixed(2) +
+    ' · ' + axisMap[params.axis] + ' ' + (params.turns * 180) + '° · 透视 ' + params.perspective +
+    ' · 阴影 ' + params.shadow;
+}
+
+/* ===== UI 同步 ===== */
+function syncUI(){
+  Q('sDur').value = params.dur;
+  Q('vDur').textContent = params.dur.toFixed(1) + 's';
+  Q('selEase').value = params.ease;
+  Q('selDir').value = params.dir;
+  Q('selPreset').value = params.preset;
+  Q('sLift').value = params.lift;
+  Q('vLift').textContent = params.lift + 'px';
+  Q('sScale').value = params.scale;
+  Q('vScale').textContent = params.scale.toFixed(2) + '×';
+  Q('sPersp').value = params.perspective;
+  Q('vPersp').textContent = params.perspective + 'px';
+  Q('selAxis').value = params.axis;
+  Q('selTurns').value = String(params.turns);
+  Q('sShadow').value = params.shadow;
+  Q('vShadow').textContent = params.shadow;
+  Q('selShadowMode').value = params.shadowMode || 'const';
+  Q('sLiftAt').value = params.liftAt;
+  Q('vLiftAt').textContent = params.liftAt + '%';
+  Q('sRotAt').value = params.rotAt;
+  Q('vRotAt').textContent = params.rotAt + '%';
+  Q('sAutoSec').value = params.autoSec;
+  Q('vAutoSec').textContent = params.autoSec === 0 ? '关' : params.autoSec + 's';
+  Q('cbTilt').checked = params.tilt;
+  Q('cbClick').checked = params.clickFlip;
+  Q('cbSound').checked = params.sound;
+  Q('cbAutoH').checked = params.autoHeight;
+  buildZones();
+}
+
+/* ===== 控件绑定 ===== */
+function bindSlider(id, key, label, fmt){
+  var el = Q(id);
+  el.addEventListener('input', function(){
+    params[key] = parseFloat(el.value);
+    if(['lift','scale','liftAt','rotAt'].indexOf(key) >= 0) params.preset = 'custom';
+    Q(label).textContent = fmt(params[key]);
+    if(key === 'dur' || key === 'preset') { /* noop */ }
+    if(key === 'liftAt') Q('selPreset').value = params.preset;
+    applyParams();
+  });
+}
+bindSlider('sDur', 'dur', 'vDur', function(v){ return v.toFixed(1) + 's'; });
+bindSlider('sLift', 'lift', 'vLift', function(v){ return v + 'px'; });
+bindSlider('sScale', 'scale', 'vScale', function(v){ return v.toFixed(2) + '×'; });
+bindSlider('sPersp', 'perspective', 'vPersp', function(v){ return v + 'px'; });
+bindSlider('sShadow', 'shadow', 'vShadow', function(v){ return String(v); });
+bindSlider('sLiftAt', 'liftAt', 'vLiftAt', function(v){ return v + '%'; });
+bindSlider('sRotAt', 'rotAt', 'vRotAt', function(v){ return v + '%'; });
+
+Q('sAutoSec').addEventListener('input', function(){
+  params.autoSec = parseInt(this.value, 10);
+  Q('vAutoSec').textContent = params.autoSec === 0 ? '关' : params.autoSec + 's';
+  syncAuto();
+});
+
+Q('selEase').addEventListener('change', function(){ params.ease = this.value; params.preset = params.preset === 'custom' ? 'custom' : params.preset; applyParams(); });
+Q('selDir').addEventListener('change', function(){ params.dir = this.value; applyParams(); });
+Q('selAxis').addEventListener('change', function(){ params.axis = this.value; applyParams(); });
+Q('selTurns').addEventListener('change', function(){ params.turns = parseInt(this.value, 10); applyParams(); });
+Q('selShadowMode').addEventListener('change', function(){ params.shadowMode = this.value; applyParams(); });
+
+Q('selPreset').addEventListener('change', function(){
+  var p = PRESETS[this.value];
+  params.preset = this.value;
+  if(p){
+    params.lift = p.lift; params.scale = p.scale;
+    params.liftAt = p.liftAt; params.rotAt = p.rotAt;
+    params.ease = p.ease;
+  }
+  syncUI(); applyParams();
+});
+
+Q('cbTilt').addEventListener('change', function(){ params.tilt = this.checked; if(!this.checked) tilt.style.transform = ''; });
+Q('cbClick').addEventListener('change', function(){
+  params.clickFlip = this.checked;
+  hotClear();
+  if(mouseIn) evalAt(lastMX, lastMY);
+  else applyCursor(null);
+});
+Q('cbSound').addEventListener('change', function(){ params.sound = this.checked; });
+Q('cbAutoH').addEventListener('change', function(){
+  params.autoHeight = this.checked;
+  if(this.checked) idleHeight(); // 勾选：立即贴合当前面；取消：保持现状，绝不改动高度
+});
+
+/* ===== 音效 ===== */
+function playSound(){
+  if(!params.sound) return;
+  try{
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    var o = actx.createOscillator(), g = actx.createGain();
+    var t = actx.currentTime, d = Math.min(params.dur, .5);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(880, t);
+    o.frequency.exponentialRampToValueAtTime(320, t + d);
+    g.gain.setValueAtTime(.0001, t);
+    g.gain.exponentialRampToValueAtTime(.12, t + .02);
+    g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t); o.stop(t + d + .05);
+  }catch(e){}
+}
+
+/* ===== 翻转核心 ===== */
+/* 预生成：设置改完即存下一次翻转结果；每次翻转动作完成后再生存下一次（多档旋转视为1次动作） */
+var pendingFlip = { sign: 1 };
+function genNextFlip(){
+  pendingFlip = {
+    sign: params.dir === 'r' ? 1 : params.dir === 'l' ? -1 : (Math.random() < .5 ? 1 : -1)
+  };
+}
+
+function faceAngle(){
+  var t = getComputedStyle(inner).transform;
+  if(!t || t === 'none') return sideSign === 0 ? 0 : 180;
+  var m = t.match(/matrix3d\(([^)]+)\)/);
+  var nz;
+  if(m){
+    nz = parseFloat(m[1].split(',')[10]);
+  } else {
+    var m2 = t.match(/matrix\(([^)]+)\)/);
+    if(!m2) return sideSign === 0 ? 0 : 180;
+    nz = parseFloat(m2[1].split(',')[0]); // a = cosθ
+  }
+  if(isNaN(nz)) return sideSign === 0 ? 0 : 180;
+  return Math.acos(Math.max(-1, Math.min(1, nz))) * 180 / Math.PI;
+}
+
+function flipCard(){
+  if(animating) return;
+  animating = true;
+  hotClear();
+  zhClear();
+  playSound();
+
+  var goingFwd = sideSign === 0;
+  var sign;
+  if(goingFwd){
+    sign = pendingFlip.sign; /* 用预生成的结果，翻转过程不再随机 */
+  } else {
+    sign = sideSign;
+  }
+  var name = goingFwd
+    ? (sign > 0 ? 'kf-fwd-pos' : 'kf-fwd-neg')
+    : (sign > 0 ? 'kf-back-pos' : 'kf-back-neg');
+  name += kfTag;
+
+  var destH = (goingFwd ? backEl : frontEl).offsetHeight;
+
+  inner.style.animation = 'none';
+  void inner.offsetWidth;
+  inner.style.animation = name + ' ' + params.dur + 's ' + EASES[params.ease] + ' forwards';
+  applyShadowMode();
+
+  // 高度自适应：在卡片转到 ~90° 侧棱（几乎看不见）时瞬间切换高度，不做事先的高度动画
+  var rafId = 0;
+  if(params.autoHeight){
+    var prevA = faceAngle();
+    var snapped = false;
+    var watch = function(){
+      if(!animating) return;
+      var cur = faceAngle();
+      if(!snapped && params.autoHeight &&
+         ((prevA < 90 && cur >= 90) || (prevA > 90 && cur <= 90))){
+        inner.style.height = destH + 'px';
+        snapped = true;
+      }
+      prevA = cur;
+      if(!snapped) rafId = requestAnimationFrame(watch);
+    };
+    rafId = requestAnimationFrame(watch);
+  }
+
+  var finished = false;
+  function done(){
+    if(finished) return;
+    finished = true;
+    clearTimeout(timer);
+    cancelAnimationFrame(rafId);
+    inner.removeEventListener('animationend', done);
+    inner.style.animation = 'none';
+    sideSign = goingFwd ? sign : 0;
+    applyResting();
+    animating = false;
+    applyShadowMode();
+    idleHeight();
+    genNextFlip(); /* 翻转完成 → 预生成下一次 */
+    buildZones();
+    if(mouseIn) evalAt(lastMX, lastMY);
+  }
+  inner.addEventListener('animationend', done);
+  var timer = setTimeout(done, params.dur * 1000 + 250);
+}
+
+/* ===== 悬停倾斜 + 光标/热区（热区表：按布局坐标建表，鼠标映射查表，规避 3D 实时命中抖动） ===== */
+var INTERACTIVE = 'button,input,select,label,a,option,pre,textarea,.slider-row,.row,.checkbox-row';
+function isInteractive(el){ return !!(el && el.closest && el.closest(INTERACTIVE)); }
+function pointEl(x, y){ return document.elementFromPoint(x, y); }
+
+var hotApplied = false, hotWant = false, hotTimer = 0;
+function hotClear(){
+  clearTimeout(hotTimer); hotTimer = 0;
+  hotWant = false;
+  if(hotApplied){ hotApplied = false; stage.classList.remove('flip-hot'); }
+}
+function hotSchedule(){
+  if(hotWant === hotApplied){ clearTimeout(hotTimer); hotTimer = 0; return; }
+  if(hotTimer) return;
+  hotTimer = setTimeout(function(){
+    hotTimer = 0;
+    if(hotWant !== hotApplied){
+      hotApplied = hotWant;
+      stage.classList.toggle('flip-hot', hotApplied);
+    }
+  }, 60);
+}
+
+/* 热区表：布局坐标（不受 3D 变换影响），按钮 btn 优先于普通控件 ctl */
+var zones = [], ZPAD = 10, ZCW = 0, ZCH = 0;
+function absLayout(el){
+  var x = 0, y = 0, n = el;
+  while(n){ x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+  return { x: x, y: y };
+}
+function isFlipBtn(b){
+  return !!(b && b.getAttribute && b.getAttribute('data-act') === 'flip');
+}
+function zoneKind(el){
+  if(el.tagName === 'BUTTON' || el.tagName === 'A') return isFlipBtn(el) ? 'flipbtn' : 'btn';
+  if(el.tagName === 'INPUT'){
+    if(el.type === 'range') return 'grab';
+    if(el.type === 'checkbox') return 'check';
+    return 'dead';
+  }
+  if(el.tagName === 'SELECT') return 'select';
+  if(el.tagName === 'LABEL') return el.querySelector('input[type="checkbox"]') ? 'check' : 'dead';
+  return 'dead'; /* 行标签/滑杆文字/复选行空隙等：点击无响应 */
+}
+function buildZones(){
+  zones = [];
+  ZCW = inner.offsetWidth;
+  ZCH = inner.offsetHeight;
+  var root = absLayout(inner);
+  var els = inner.querySelectorAll(INTERACTIVE);
+  for(var i = 0; i < els.length; i++){
+    var el = els[i];
+    var w = el.offsetWidth, h = el.offsetHeight;
+    if(!w || !h) continue;
+    var p = absLayout(el);
+    var hl = (el.closest && el.closest('label,button,a')) || el;
+    zones.push({
+      x: p.x - root.x, y: p.y - root.y, w: w, h: h,
+      side: frontEl.contains(el) ? 0 : 1,
+      kind: zoneKind(el),
+      el: el,
+      hl: hl
+    });
+  }
+}
+function zoneAt(x, y){
+  if(!ZCW || !ZCH) return null;
+  /* stage 无 transform，rect 恒定且等于卡片布局盒，作为映射基准不受倾斜影响 */
+  var sr = stage.getBoundingClientRect();
+  if(!sr.width || !sr.height) return null;
+  var side = sideSign !== 0 ? 1 : 0;
+  /* 背面 = 面内 180° + 容器 180° 双重翻转，净位移无镜像，直接按布局坐标映射 */
+  var lx = (x - sr.left) / sr.width * ZCW;
+  var ly = (y - sr.top) / sr.height * ZCH;
+  /* 最小距离优先（未扩张矩形的距离），并列时后者（更深元素）胜；容差=ZPAD 吸收倾斜映射误差 */
+  var best = null, bestD = Infinity, lim = ZPAD * ZPAD;
+  for(var i = 0; i < zones.length; i++){
+    var z = zones[i];
+    if(z.side !== side) continue;
+    var dx = lx < z.x ? z.x - lx : (lx > z.x + z.w ? lx - (z.x + z.w) : 0);
+    var dy = ly < z.y ? z.y - ly : (ly > z.y + z.h ? ly - (z.y + z.h) : 0);
+    var d = dx * dx + dy * dy;
+    if(d > lim) continue;
+    if(d <= bestD){ bestD = d; best = z; }
+  }
+  return best;
+}
+
+var lastMX = -9999, lastMY = -9999, mouseIn = false;
+var dragging = false, zoneCurEl = null;
+/* 按轴向定光标（diag→nesw / diag2→nwse），不依赖 pendingFlip */
+function flipDirCursor(){
+  if(params.axis === 'x') return 'ns-resize';
+  if(params.axis === 'diag') return 'nesw-resize';
+  if(params.axis === 'diag2') return 'nwse-resize';
+  return 'ew-resize';
+}
+function cursorForZone(z){
+  if(!z) return params.clickFlip ? flipDirCursor() : 'not-allowed';
+  if(z.kind === 'flipbtn') return flipDirCursor();
+  if(z.kind === 'btn') return 'pointer';
+  if(z.kind === 'grab') return dragging ? 'grabbing' : 'grab';
+  if(z.kind === 'check') return 'pointer';
+  if(z.kind === 'select') return 'default';
+  return 'not-allowed';
+}
+/* 原生 :hover 在 3D 倾斜下会竞态闪烁，高亮改由热区表驱动的 .zh 类（防抖） */
+var zhApplied = null, zhWant = null, zhTimer = 0;
+function setZoneHover(el){
+  zhWant = el || null;
+  if(zhWant === zhApplied){
+    if(zhTimer){ clearTimeout(zhTimer); zhTimer = 0; }
+    return;
+  }
+  if(zhTimer) return;
+  zhTimer = setTimeout(function(){
+    zhTimer = 0;
+    if(zhWant !== zhApplied){
+      if(zhApplied) zhApplied.classList.remove('zh');
+      zhApplied = zhWant;
+      if(zhApplied) zhApplied.classList.add('zh');
+    }
+  }, 60);
+}
+function zhClear(){
+  clearTimeout(zhTimer); zhTimer = 0;
+  zhWant = null;
+  if(zhApplied){ zhApplied.classList.remove('zh'); zhApplied = null; }
+}
+function applyCursor(c, z){
+  if(!mouseIn || !c){
+    stage.style.removeProperty('cursor');
+    frontEl.style.removeProperty('cursor');
+    backEl.style.removeProperty('cursor');
+    if(zoneCurEl){ zoneCurEl.style.removeProperty('cursor'); zoneCurEl = null; }
+    return;
+  }
+  stage.style.cursor = c;
+  frontEl.style.cursor = c;
+  backEl.style.cursor = c;
+  var target = z ? z.el : null;
+  if(zoneCurEl && zoneCurEl !== target) zoneCurEl.style.removeProperty('cursor');
+  zoneCurEl = target;
+  if(zoneCurEl) zoneCurEl.style.cursor = c;
+}
+function evalAt(x, y){
+  if(!mouseIn) return;
+  if(animating){
+    applyCursor(null);
+    setZoneHover(null);
+    hotWant = false;
+    hotSchedule();
+    return;
+  }
+  var z = zoneAt(x, y);
+  setZoneHover(z ? z.hl : null);
+  applyCursor(cursorForZone(z), z);
+  hotWant = params.clickFlip && !z;
+  hotSchedule();
+}
+
+stage.addEventListener('mousemove', function(e){
+  mouseIn = true;
+  lastMX = e.clientX; lastMY = e.clientY;
+  if(params.tilt && !animating){
+    var r = stage.getBoundingClientRect();
+    var x = (e.clientX - r.left) / r.width - .5;
+    var y = (e.clientY - r.top) / r.height - .5;
+    tilt.style.transform = 'rotateX(' + (-y * 10).toFixed(2) + 'deg) rotateY(' + (x * 14).toFixed(2) + 'deg)';
+  }
+  evalAt(e.clientX, e.clientY);
+});
+/* 倾斜动画落定后按最终映射重判一次 */
+tilt.addEventListener('transitionend', function(ev){
+  if(ev.propertyName !== 'transform') return;
+  if(!mouseIn){ hotClear(); return; }
+  evalAt(lastMX, lastMY);
+});
+stage.addEventListener('mouseleave', function(){
+  mouseIn = false;
+  lastMX = lastMY = -9999;
+  tilt.style.transform = '';
+  hotClear();
+  zhClear();
+  applyCursor(null);
+});
+/* 滑块按住=抓住，松开=抓取 */
+stage.addEventListener('pointerdown', function(e){
+  var z = zoneAt(e.clientX, e.clientY);
+  if(z && z.kind === 'grab'){
+    dragging = true;
+    evalAt(e.clientX, e.clientY);
+  }
+});
+function onWinPointerup(){
+  if(dragging){
+    dragging = false;
+    if(mouseIn) evalAt(lastMX, lastMY);
+  }
+}
+window.addEventListener('pointerup', onWinPointerup);
+
+stage.addEventListener('click', function(e){
+  var z = zoneAt(e.clientX, e.clientY);
+  if(z){
+    /* 3D 倾斜下 elementFromPoint 可能脱靶（打到 flip-inner 等祖先）：按热区表补触发。
+       仅当 target 是控件本身/后代 才算原生命中；命中祖先不算（否则会漏触发）。 */
+    var t = e.target;
+    var nativeHit = !!(t && z.el && (t === z.el || (z.el.contains && z.el.contains(t))));
+    if(!nativeHit){
+      if(z.kind === 'check'){
+        var input = null;
+        if(z.el.tagName === 'INPUT' && z.el.type === 'checkbox') input = z.el;
+        else if(z.el.querySelector) input = z.el.querySelector('input[type="checkbox"]');
+        if(input){
+          input.checked = !input.checked;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } else if(z.kind === 'btn' || z.kind === 'flipbtn'){
+        if(z.el.click) z.el.click();
+      } else if(z.kind === 'select'){
+        if(z.el.focus) z.el.focus();
+        if(z.el.click) z.el.click();
+      }
+    }
+    return;
+  }
+  if(!params.clickFlip) return;
+  if(isInteractive(pointEl(e.clientX, e.clientY))) return;
+  flipCard();
+});
+
+/* ===== 自动翻转 ===== */
+function syncAuto(){
+  if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+  if(params.autoSec > 0) autoTimer = setInterval(flipCard, params.autoSec * 1000);
+}
+
+/* ===== 随机 / 重置 ===== */
+function rnd(a, b){ return a + Math.random() * (b - a); }
+function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+
+function randomizeParams(){
+  params.dur = Math.round(rnd(.4, 1.6) * 10) / 10;
+  params.ease = pick(['smooth','out','in','overshoot','strong','linear']);
+  params.dir = pick(['random','r','l']);
+  params.lift = Math.round(rnd(0, 55));
+  params.scale = Math.round(rnd(1, 1.12) * 100) / 100;
+  params.liftAt = Math.round(rnd(5, 35));
+  params.rotAt = Math.round(rnd(60, 95));
+  params.perspective = Math.round(rnd(500, 2200) / 50) * 50;
+  params.axis = keepAxis || pick(['y','x','diag','diag2']);
+  params.turns = pick([1, 3]);
+  params.shadow = Math.round(rnd(0, 55));
+  params.preset = 'custom';
+  syncUI(); applyParams(); flipCard();
+}
+
+function resetParams(){
+  params = Object.assign({}, DEFAULTS);
+  if(keepAxis) params.axis = keepAxis;
+  syncUI(); applyParams(); syncAuto();
+}
+
+/* ===== 导出 CSS ===== */
+function exportCSS(){
+  var css = '';
+  css += '/* ===== 翻转卡片参数（由 flip-demo 导出） ===== */\n';
+  css += '.stage{perspective:' + params.perspective + 'px}\n';
+  css += '.tilt{transform-style:preserve-3d}\n';
+  css += '.flip-inner{position:relative;transform-style:preserve-3d}\n';
+  css += '/* 高度自适应：翻转中卡片转到 ~90° 侧棱时瞬间切换容器高度（无高度过渡动画） */\n';
+  css += '.flip-face{position:absolute;top:0;left:0;right:0;backface-visibility:hidden}\n';
+  css += '.flip-back{transform:' + rotStr(180) + '}\n\n';
+  css += '/* 动画：' + params.dur.toFixed(1) + 's / ' + EASES[params.ease] +
+         ' / ' + params.axis + ' / ' + (params.turns * 180) + '° / 抬起 ' + params.lift + 'px */\n';
+  css += '/* 正→反: */ animation: kf-fwd-pos' + kfTag + ' ' + params.dur + 's ' + EASES[params.ease] + ' forwards;\n';
+  css += '/* 反→正: */ animation: kf-back-pos' + kfTag + ' ' + params.dur + 's ' + EASES[params.ease] + ' forwards;\n\n';
+  css += kfStyle.textContent;
+  css += '\n/* 静止状态：正面 transform:none；背面 transform:' + rotStr(sideSign * params.turns * 180) + ' */\n';
+  if(params.clickFlip){
+    css += '\n/* 热区包边：悬停非控件区域时绿色描边（光标/热区逻辑需配合 JS 的热区表同步） */\n';
+    css += '.stage.flip-hot .flip-face{border-color:#34d399;box-shadow:0 0 0 2px rgba(52,211,153,.45),0 4px 14px rgba(0,0,0,.35)}\n';
+  }
+  return css;
+}
+function openExport(){
+  exportOwner = api;
+  document.getElementById('cssOut').textContent = exportCSS();
+  document.getElementById('overlay').classList.add('show');
+}
+
+function boot(){
+  syncUI();
+  applyParams();
+  setTimeout(function(){ idleHeight(); buildZones(); }, 50);
+}
+if(document.readyState === 'complete') boot();
+else window.addEventListener('load', boot);
+
+wrap.addEventListener('click', function(e){
+  var t = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+  if(!t || !wrap.contains(t)) return;
+  var a = t.getAttribute('data-act');
+  if(a === 'flip') flipCard();
+  else if(a === 'random') randomizeParams();
+  else if(a === 'export') openExport();
+  else if(a === 'reset') resetParams();
+});
+
+var api = {
+  wrap: wrap,
+  get params(){ return params; },
+  get sideSign(){ return sideSign; },
+  get animating(){ return animating; },
+  get pendingFlip(){ return pendingFlip; },
+  flipCard: flipCard,
+  applyParams: applyParams,
+  randomizeParams: randomizeParams,
+  resetParams: resetParams,
+  openExport: openExport,
+  exportCSS: exportCSS,
+  buildZones: buildZones,
+  dispose: function(){
+    if(autoTimer){ clearInterval(autoTimer); autoTimer = null; }
+    window.removeEventListener('pointerup', onWinPointerup);
+    if(kfStyle && kfStyle.parentNode) kfStyle.parentNode.removeChild(kfStyle);
+    wrap.__card = null;
+  }
+};
+wrap.__card = api;
+return api;
+}
+
+/* ===== 全局：卡片集合 + 兼容层（测试/弹窗） ===== */
+var cards = [];
+var exportOwner = null;
+
+function closeExport(){ document.getElementById('overlay').classList.remove('show'); }
+function copyCSS(){
+  var owner = exportOwner || cards[0];
+  var txt = owner ? owner.exportCSS() : '';
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ alert('已复制到剪贴板'); });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    alert('已复制到剪贴板');
+  }
+}
+document.getElementById('overlay').addEventListener('click', function(e){
+  if(e.target === this) closeExport();
+});
+
+cards.push(createCard(document.getElementById('wrap')));
+window.cards = cards;
+
+Object.defineProperty(window, 'params', { get: function(){ return cards[0].params; } });
+Object.defineProperty(window, 'sideSign', { get: function(){ return cards[0].sideSign; } });
+Object.defineProperty(window, 'animating', { get: function(){ return cards[0].animating; } });
+Object.defineProperty(window, 'pendingFlip', { get: function(){ return cards[0].pendingFlip; } });
+window.flipCard = function(){ return cards[0].flipCard(); };
+window.applyParams = function(){ return cards[0].applyParams(); };
+window.randomizeParams = function(){ return cards[0].randomizeParams(); };
+window.resetParams = function(){ return cards[0].resetParams(); };
+window.openExport = function(){ return cards[0].openExport(); };
+window.closeExport = closeExport;
+window.copyCSS = copyCSS;
+window.buildZones = function(){ return cards[0].buildZones(); };
+
+window.addEventListener('resize', function(){
+  cards[0].buildZones();
 });
 </script>
 </body>
