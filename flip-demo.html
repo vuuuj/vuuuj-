@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>翻转卡片 Demo</title>
+<style>
+:root{--bg:#0f1117;--card:#171b26;--card2:#1f2637;--line:#2a3348;--text:#e8eaf0;--muted:#9aa3b2;--ok:#34d399;--blue:#38bdf8;--red:#e74c3c;--purple:#a855f7}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);line-height:1.5;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:40px 16px}
+h1{font-size:22px;margin-bottom:8px}
+.sub{color:var(--muted);font-size:13px;margin-bottom:30px}
+
+.wrap{width:100%;max-width:400px}
+
+/* ===== 翻转核心 CSS ===== */
+.flip-wrap{perspective:1200px}
+.flip-inner{
+  position:relative;
+  transform-style:preserve-3d;
+  transition:height .4s ease;
+}
+.flip-face{
+  position:absolute;top:0;left:0;right:0;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+.flip-back{transform:rotateY(180deg)}
+
+/* 关键帧：抬起 → 旋转 → 放下 */
+@keyframes flipR{
+  0%  {transform:translateY(0) scale(1) rotateY(0deg)}
+  20% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
+  80% {transform:translateY(-30px) scale(1.04) rotateY(180deg)}
+  100%{transform:translateY(0) scale(1) rotateY(180deg)}
+}
+@keyframes flipL{
+  0%  {transform:translateY(0) scale(1) rotateY(0deg)}
+  20% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
+  80% {transform:translateY(-30px) scale(1.04) rotateY(-180deg)}
+  100%{transform:translateY(0) scale(1) rotateY(-180deg)}
+}
+@keyframes flipBackR{
+  0%  {transform:translateY(0) scale(1) rotateY(180deg)}
+  20% {transform:translateY(-30px) scale(1.04) rotateY(180deg)}
+  80% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
+  100%{transform:translateY(0) scale(1) rotateY(0deg)}
+}
+@keyframes flipBackL{
+  0%  {transform:translateY(0) scale(1) rotateY(-180deg)}
+  20% {transform:translateY(-30px) scale(1.04) rotateY(-180deg)}
+  80% {transform:translateY(-30px) scale(1.04) rotateY(0deg)}
+  100%{transform:translateY(0) scale(1) rotateY(0deg)}
+}
+.flip-inner.anim-r{animation:flipR .9s cubic-bezier(.4,0,.2,1) forwards}
+.flip-inner.anim-l{animation:flipL .9s cubic-bezier(.4,0,.2,1) forwards}
+.flip-inner.anim-back-r{animation:flipBackR .9s cubic-bezier(.4,0,.2,1) forwards}
+.flip-inner.anim-back-l{animation:flipBackL .9s cubic-bezier(.4,0,.2,1) forwards}
+.flip-inner.flipped-r{transform:rotateY(180deg)}
+.flip-inner.flipped-l{transform:rotateY(-180deg)}
+
+/* ===== 卡片样式 ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.card h3{font-size:16px;margin-bottom:12px}
+.card p{font-size:14px;color:var(--muted);line-height:1.7}
+
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px}
+.card-head h3{margin:0;font-size:16px}
+.icon-btn{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:inherit}
+.icon-btn:hover{border-color:var(--ok);color:var(--ok)}
+
+.btn{display:block;width:100%;padding:12px;font-size:15px;font-weight:600;border:none;border-radius:10px;cursor:pointer;color:#fff;text-align:center;margin-top:10px;font-family:inherit}
+.btn.green{background:linear-gradient(135deg,#10b981,#059669)}
+.btn.blue{background:linear-gradient(135deg,#38bdf8,#0284c7)}
+.btn.purple{background:linear-gradient(135deg,#a78bfa,#7c3aed)}
+
+.field{width:100%;padding:10px;font-size:15px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--text);margin-top:8px}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+
+.checkbox-row{font-size:14px;margin:10px 0}
+.checkbox-row label{margin-right:14px;cursor:pointer}
+
+.slider-row{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:14px}
+.slider-row input[type=range]{flex:1;accent-color:var(--ok)}
+
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;margin:0 4px}
+.tag.red{background:var(--red);color:#fff}
+.tag.blue{background:var(--blue);color:#fff}
+.tag.green{background:var(--ok);color:#fff}
+.tag.purple{background:var(--purple);color:#fff}
+</style>
+</head>
+<body>
+
+<h1>🔄 翻转卡片 Demo</h1>
+<p class="sub">点击按钮体验：抬起 → 旋转 → 放下（随机向左/向右）</p>
+
+<div class="wrap">
+  <div class="flip-wrap">
+    <div class="flip-inner" id="flipInner">
+
+      <!-- 正面 -->
+      <div class="flip-face flip-front card">
+        <div class="card-head">
+          <h3>⚙️ 正面 · 基本设置</h3>
+          <button class="icon-btn" onclick="flipCard()">前往高级设置 →</button>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" checked> 深色模式</label>
+          <label><input type="checkbox" checked> 通知推送</label>
+        </div>
+        <div class="slider-row">
+          <span>音量</span>
+          <input type="range" min="0" max="100" value="70">
+          <span>70%</span>
+        </div>
+        <select class="field">
+          <option>🔔 默认铃声</option>
+          <option>🎵 轻音乐</option>
+          <option>📢 响亮铃声</option>
+        </select>
+        <p class="hint">正面放的是基础配置项，内容较短。</p>
+        <button class="btn green">💾 保存设置</button>
+      </div>
+
+      <!-- 背面（内容故意更多，演示高度自适应） -->
+      <div class="flip-face flip-back card">
+        <div class="card-head">
+          <h3>🎨 背面 · 高级设置</h3>
+          <button class="icon-btn" onclick="flipCard()">← 返回基本设置</button>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" checked> 启用实验功能</label>
+          <label><input type="checkbox"> 调试模式</label>
+        </div>
+        <div class="slider-row">
+          <span>延迟(ms)</span>
+          <input type="range" min="0" max="2000" step="100" value="500">
+          <span>500</span>
+        </div>
+        <p style="font-size:13px;color:var(--muted);margin:8px 0">
+          这里的内容故意更多，卡片高度会随内容变化。翻转时容器会先平滑过渡到目标高度，再完成旋转动画。
+        </p>
+        <div style="margin:10px 0">
+          <span class="tag red">实验</span>
+          <span class="tag blue">Beta</span>
+          <span class="tag green">推荐</span>
+          <span class="tag purple">新功能</span>
+        </div>
+        <select class="field">
+          <option>方案 A - 保守</option>
+          <option>方案 B - 激进</option>
+          <option>方案 C - 自动</option>
+        </select>
+        <div class="checkbox-row">
+          <label><input type="checkbox" checked> 自动更新</label>
+          <label><input type="checkbox" checked> 发送遥测</label>
+          <label><input type="checkbox"> 强制刷新</label>
+        </div>
+        <button class="btn purple">🚀 应用高级设置</button>
+        <button class="btn blue" style="margin-top:6px">📋 导出配置</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function flipCard(){
+  var inner = document.getElementById('flipInner');
+  if(inner.dataset.flipping === '1') return;
+  inner.dataset.flipping = '1';
+
+  var isFlipped = inner.classList.contains('flipped-r') || inner.classList.contains('flipped-l');
+
+  var targetFace = isFlipped ? inner.querySelector('.flip-front') : inner.querySelector('.flip-back');
+  inner.style.height = targetFace.offsetHeight + 'px';
+
+  // 清掉旧动画类
+  inner.className = 'flip-inner';
+  void inner.offsetWidth; // 强制回流，重启动画
+
+  var dir = Math.random() < 0.5 ? 'r' : 'l';
+  if(!isFlipped){
+    inner.classList.add('anim-' + dir);
+  } else {
+    inner.classList.add('anim-back-' + dir);
+  }
+
+  // 动画结束后标记最终状态
+  setTimeout(function(){
+    inner.className = 'flip-inner';
+    if(!isFlipped){
+      inner.classList.add(dir === 'r' ? 'flipped-r' : 'flipped-l');
+    }
+    inner.dataset.flipping = '0';
+  }, 900);
+}
+
+window.addEventListener('load', function(){
+  var inner = document.getElementById('flipInner');
+  var front = inner.querySelector('.flip-front');
+  setTimeout(function(){ inner.style.height = front.offsetHeight + 'px'; }, 50);
+});
+</script>
+</body>
+</html>
