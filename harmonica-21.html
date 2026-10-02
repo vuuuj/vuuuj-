@@ -39,7 +39,7 @@
     font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
     padding-bottom: 64px;
   }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 0 16px; }
 
   /* ---------- header ---------- */
   header {
@@ -92,33 +92,25 @@
   .spacer { flex: 1; }
 
   /* ---------- hole board ---------- */
-  .board-scroll { overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  .board-scroll { overflow-x: visible; }
   .board {
-    display: grid; grid-template-columns: repeat(21, minmax(56px, 1fr));
-    gap: 6px; min-width: 1040px;
+    display: grid; grid-template-columns: repeat(21, minmax(0, 1fr));
+    gap: clamp(3px, .42vw, 6px);
   }
   .swipe { display: none; color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
-  @media (max-width: 1100px) {
+  /* 只有窄到放不下时才允许左右滑动 */
+  @media (max-width: 820px) {
     .swipe { display: block; }
-    .board { grid-template-columns: repeat(21, minmax(44px, 1fr)); min-width: 800px; }
-    .hole { padding: 9px 3px 7px; }
-    .hole .jp { font-size: 16px; }
-    .hole .hz { font-size: 9px; }
-    .quiz-grid { grid-template-columns: repeat(6, 1fr); }
-  }
-  @media (max-width: 620px) {
-    .top { gap: 8px; padding: 10px 0; }
-    .brand { width: 100%; }
-    .brand small { display: none; }
-    .board { min-width: 660px; }
-    .hole .jp { font-size: 15px; }
-    .hole .hz { display: none !important; }
-    .quiz-grid { grid-template-columns: repeat(5, 1fr); }
-    .wrap { padding: 0 10px; }
+    .board-scroll { overflow-x: auto; }
+    .board { grid-template-columns: repeat(21, minmax(40px, 1fr)); min-width: 720px; }
+    .hole .hz { white-space: nowrap; }
   }
   .hole {
     position: relative; display: flex; flex-direction: column; align-items: center;
-    gap: 3px; padding: 12px 4px 9px; border-radius: 9px;
+    justify-content: center; gap: clamp(2px, .3vw, 4px);
+    padding: clamp(8px, .9vw, 13px) 2px clamp(7px, .8vw, 11px);
+    border-radius: clamp(5px, .6vw, 9px);
+    min-width: 0; overflow: hidden;
     background: #332c22; border: 1px solid #4a4033; color: #e8dcc6;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
   }
@@ -126,10 +118,16 @@
   .hole.white { background: #fbf7ec; border-color: #d8cfb8; color: #1a1710; }
   html[data-theme="light"] .hole.white { background: #fff; }
   .hole:hover { border-color: var(--amber); }
-  .hole .num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .hole .jp { font-size: 19px; font-weight: 700; line-height: 1.15; font-family: "Times New Roman", "SimSun", serif; }
-  .hole .nm { font-size: 13px; font-weight: 600; color: var(--amber); }
-  .hole .hz { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hole .num { font-size: clamp(9px, .92vw, 11px); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hole .dir {
+    font-size: clamp(8px, .82vw, 10px); font-weight: 700; line-height: 1.5;
+    border-radius: 4px; width: 1.5em; text-align: center;
+  }
+  .hole .dir.d-draw { background: rgba(88,198,214,.18); color: var(--cyan); }
+  .hole .dir.d-blow { background: rgba(232,163,61,.18); color: var(--amber); }
+  .hole .jp { font-size: clamp(14px, 1.75vw, 21px); font-weight: 700; line-height: 1.1; font-family: "Times New Roman", "SimSun", serif; }
+  .hole .nm { font-size: clamp(10px, 1.1vw, 13px); font-weight: 600; color: var(--amber); }
+  .hole .hz { font-size: clamp(7px, .76vw, 10px); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .hole .tag {
     position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
     font-size: 10px; padding: 1px 6px; border-radius: 999px;
@@ -187,7 +185,6 @@
           <option value="nm">音名</option>
           <option value="hz">频率</option>
           <option value="all">全部</option>
-          <option value="num">只孔号</option>
         </select>
       </div>
       <div class="field">
@@ -213,8 +210,10 @@
 <section class="panel active" id="panel-play">
   <div class="card">
     <h2>21孔琴格</h2>
-    <p class="desc">点一下就发声。复音口琴每孔一音、吹吸同音，簧片双片微失谐所以自带颤音（tremolo）。<br>
-      白孔为 <b>2 / 8 / 14 / 20</b>。整把琴音域 <b>C3 – A5</b>，正好三个八度的 C 大调音阶。</p>
+    <p class="desc">点一下就发声。<b>复音口琴每孔一音，而且只能吸或只能吹</b> —— 吸和吹在同一孔上是互斥的，吹了不出声的孔反过来吸也没用。
+      相邻孔吸吹相间是设计原则，所以奇数孔全是吸、偶数孔全是吹；14/15 孔把高1 和中7 换了个位，就是为了维持这个交替。<br>
+      每孔上下两片簧片频率差 5–8 音分，同时发声产生「拍」的震音（tremolo），所以听起来像手风琴。
+      白孔 <b>2 / 8 / 14 / 20</b> 就是全部四个 C：<b>C3 · C4 · C5 · C6</b>。整把琴音域 <b>C3 – C6</b>，三个八度里除了 <b>B5</b> 全部齐全。</p>
     <div class="swipe">← 左右滑动查看全部 21 孔 →</div>
     <div class="board-scroll">
       <div class="board" id="board"></div>
@@ -231,11 +230,11 @@
     <h2>一键练习</h2>
     <p class="desc">全部用 Web Audio 实时合成，跟着按就行。</p>
     <div class="row">
-      <button class="primary" data-seq="scale">上行音阶（21音）</button>
+      <button class="primary" data-seq="scale">上行音阶 C3→C6</button>
       <button data-seq="scaledn">下行音阶</button>
-      <button data-seq="chord1">低音 C 和弦（孔1+3+5）</button>
-      <button data-seq="chord2">中音 C 和弦（孔9+11+13）</button>
-      <button data-seq="chord3">高音 C 和弦（孔17+18+19）</button>
+      <button data-seq="chord1">低音 C 和弦（2+4+6孔）</button>
+      <button data-seq="chord2">中音 C 和弦（8+10+12孔）</button>
+      <button data-seq="chord3">高音 C 和弦（14+16+18孔）</button>
     </div>
     <div class="row">
       <div class="field"><label for="seqbpm">速度</label>
@@ -354,8 +353,8 @@
       <button class="primary" id="tunmic">开启麦克风</button>
       <span class="pill" id="tunstate">未开启</span>
       <div class="spacer"></div>
-      <button id="refplay">播放 1孔 参考音</button>
-      <button data-ref="1,3,5">播放 C 和弦（1+3+5孔）</button>
+      <button id="refplay">播放 2孔 参考音</button>
+      <button data-ref="2,4,6">播放 低音 C 和弦（2+4+6孔）</button>
       <button data-ref="all">巡检全琴 21 音</button>
     </div>
     <div class="row">
@@ -377,31 +376,37 @@
   "use strict";
 
   /* =========================================================
-     1. 音阶数据（C 调 21 孔复音口琴，每孔一音）
-     孔号 1→21，音高 C3 → A5，完整三个八度 C 大调
+     1. 音阶数据（与原版 harmonica-21-原版.html 逐格一致）
+     白孔 2 / 8 / 14 / 20 = C3 / C4 / C5 / C6
+     吸（奇数孔）：低2 低4 低6 低7 | 中2 中4 中6 中7 | 高2 高4 高6
+     吹（偶数孔）：低1 低3 低5 中1   | 中3 中5 高1 高3 高5 | 高高1
+     全琴音域 C3 – C6，三个八度除 B5 外齐全
+     注：复音口琴每孔一音，且只能吸或只能吹（吸吹互斥）。
+         相邻孔吸吹相间是设计原则；14/15 孔把高1 与中7 换位，
+         正是为了维持这个交替规律。
      ========================================================= */
   var HOLES = [
-    { n: 1,  jp: [2,-1], midi: 50 }, // 低2  D3
-    { n: 2,  jp: [1,-1], midi: 48 }, // 低1  C3  白孔
-    { n: 3,  jp: [4,-1], midi: 53 }, // 低4  F3
-    { n: 4,  jp: [3,-1], midi: 52 }, // 低3  E3
-    { n: 5,  jp: [6,-1], midi: 57 }, // 低6  A3
-    { n: 6,  jp: [5,-1], midi: 55 }, // 低5  G3
-    { n: 7,  jp: [7,-1], midi: 59 }, // 低7  B3
-    { n: 8,  jp: [7,-1], midi: 59 }, // 低7  B3  白孔
-    { n: 9,  jp: [2, 0], midi: 62 }, // 中2  D4
-    { n: 10, jp: [1, 0], midi: 60 }, // 中1  C4
-    { n: 11, jp: [4, 0], midi: 65 }, // 中4  F4
-    { n: 12, jp: [3, 0], midi: 64 }, // 中3  E4
-    { n: 13, jp: [6, 0], midi: 69 }, // 中6  A4
-    { n: 14, jp: [5, 0], midi: 67 }, // 中5  G4  白孔
-    { n: 15, jp: [7, 0], midi: 71 }, // 中7  B4
-    { n: 16, jp: [1, 1], midi: 72 }, // 高1  C5
-    { n: 17, jp: [2, 1], midi: 74 }, // 高2  D5
-    { n: 18, jp: [3, 1], midi: 76 }, // 高3  E5
-    { n: 19, jp: [4, 1], midi: 77 }, // 高4  F5
-    { n: 20, jp: [5, 1], midi: 79 }, // 高5  G5  白孔
-    { n: 21, jp: [6, 1], midi: 81 }  // 高6  A5
+    { n: 1,  jp: [2,-1], midi: 50, dir: "吸" }, // 低2  D3
+    { n: 2,  jp: [1,-1], midi: 48, dir: "吹" }, // 低1  C3  白孔
+    { n: 3,  jp: [4,-1], midi: 53, dir: "吸" }, // 低4  F3
+    { n: 4,  jp: [3,-1], midi: 52, dir: "吹" }, // 低3  E3
+    { n: 5,  jp: [6,-1], midi: 57, dir: "吸" }, // 低6  A3
+    { n: 6,  jp: [5,-1], midi: 55, dir: "吹" }, // 低5  G3
+    { n: 7,  jp: [7,-1], midi: 59, dir: "吸" }, // 低7  B3
+    { n: 8,  jp: [1, 0], midi: 60, dir: "吹" }, // 中1  C4  白孔
+    { n: 9,  jp: [2, 0], midi: 62, dir: "吸" }, // 中2  D4
+    { n: 10, jp: [3, 0], midi: 64, dir: "吹" }, // 中3  E4
+    { n: 11, jp: [4, 0], midi: 65, dir: "吸" }, // 中4  F4
+    { n: 12, jp: [5, 0], midi: 67, dir: "吹" }, // 中5  G4
+    { n: 13, jp: [6, 0], midi: 69, dir: "吸" }, // 中6  A4
+    { n: 14, jp: [1, 1], midi: 72, dir: "吹" }, // 高1  C5  白孔
+    { n: 15, jp: [7, 0], midi: 71, dir: "吸" }, // 中7  B4
+    { n: 16, jp: [3, 1], midi: 76, dir: "吹" }, // 高3  E5
+    { n: 17, jp: [2, 1], midi: 74, dir: "吸" }, // 高2  D5
+    { n: 18, jp: [5, 1], midi: 79, dir: "吹" }, // 高5  G5
+    { n: 19, jp: [4, 1], midi: 77, dir: "吸" }, // 高4  F5
+    { n: 20, jp: [1, 2], midi: 84, dir: "吹" }, // 高高1 C6  白孔
+    { n: 21, jp: [6, 1], midi: 81, dir: "吸" }  // 高6  A5
   ];
   var WHITE = { 2: 1, 8: 1, 14: 1, 20: 1 };
 
@@ -427,6 +432,8 @@
     off: {}   // 每孔八度偏移
   };
   try { state.off = JSON.parse(load(SOFF, "{}")) || {}; } catch (e) { state.off = {}; }
+  // "num" 选项已移除，旧存档回退到简谱
+  if (["jp", "nm", "hz", "all"].indexOf(state.disp) < 0) { state.disp = "jp"; save(SDISP, "jp"); }
 
   /* ---------- 工具 ---------- */
   function $(s) { return document.querySelector(s); }
@@ -447,6 +454,19 @@
   }
   function midiOf(hole) { return hole.midi + 12 * (state.off[hole.n] || 0) + KEY_SEMI[state.key]; }
   function byNum(n) { return HOLES[n - 1]; }
+  /* 按实际音高排序（孔号顺序 ≠ 音高顺序，21 孔是交错排列的） */
+  function byPitch() {
+    return HOLES.slice().sort(function (a, b) { return a.midi - b.midi; })
+                   .map(function (h) { return h.n; });
+  }
+  function byPitchDesc() { return byPitch().reverse(); }
+  /* 音区按音高切分：低音 C3-B3 / 中音 C4-B4 / 高音 C5 以上 */
+  function byRegister(reg) {
+    var lo = { low: [48, 59], mid: [60, 71], high: [72, 96] }[reg];
+    return byPitch().filter(function (n) {
+      var m = byNum(n).midi; return m >= lo[0] && m <= lo[1];
+    });
+  }
 
   /* =========================================================
      2. 发声引擎
@@ -549,8 +569,8 @@
     b.className = "hole" + (WHITE[h.n] ? " white" : "");
     b.id = "h" + h.n;
     b.dataset.n = h.n;
-    b.title = "孔 " + h.n + "　Shift+点击 +1 八度 / Alt+点击 −1 八度 / 右键还原";
-    b.innerHTML = '<span class="tag"></span><span class="num"></span><span class="jp"></span><span class="nm"></span><span class="hz"></span>';
+    b.title = "孔 " + h.n + "（" + h.dir + "）　Shift+点击 +1 八度 / Alt+点击 −1 八度 / 右键还原";
+    b.innerHTML = '<span class="tag"></span><span class="dir"></span><span class="num"></span><span class="jp"></span><span class="nm"></span><span class="hz"></span>';
     board.appendChild(b);
 
     b.addEventListener("click", function (e) {
@@ -575,6 +595,8 @@
       var el = holeEl(h.n); if (!el) return;
       var m = midiOf(h);
       var off = state.off[h.n] || 0;
+      el.querySelector(".dir").textContent = h.dir;
+      el.querySelector(".dir").className = "dir " + (h.dir === "吸" ? "d-draw" : "d-blow");
       el.querySelector(".num").textContent = h.n;
       el.querySelector(".jp").textContent = jpText(h);
       el.querySelector(".nm").textContent = noteName(m);
@@ -584,8 +606,6 @@
       el.querySelector(".jp").style.display = (d === "jp" || d === "all") ? "" : "none";
       el.querySelector(".nm").style.display = (d === "nm" || d === "all") ? "" : "none";
       el.querySelector(".hz").style.display = (d === "hz" || d === "all") ? "" : "none";
-      el.querySelector(".num").style.fontWeight = d === "num" ? "700" : "";
-      el.querySelector(".num").style.fontSize = d === "num" ? "15px" : "";
     });
     markSel();
   }
@@ -619,11 +639,11 @@
   function stopSeq() { clearTimeout(seqTimer); seqTimer = null; $("#seqnow").textContent = "—"; }
 
   var SEQS = {
-    scale:   { label: "上行音阶", holes: HOLES.map(function (h) { return h.n; }) },
-    scaledn: { label: "下行音阶", holes: HOLES.map(function (h) { return h.n; }).reverse() },
-    chord1:  { label: "低音 C 和弦", holes: [1, 3, 5], chord: true },
-    chord2:  { label: "中音 C 和弦", holes: [9, 11, 13], chord: true },
-    chord3:  { label: "高音 C 和弦", holes: [17, 18, 19], chord: true }
+    scale:   { label: "上行音阶 C3→C6", holes: byPitch() },
+    scaledn: { label: "下行音阶 C6→C3", holes: byPitchDesc() },
+    chord1:  { label: "低音 C 和弦（孔2+4+6）", holes: [2, 4, 6], chord: true },
+    chord2:  { label: "中音 C 和弦（孔8+10+12）", holes: [8, 10, 12], chord: true },
+    chord3:  { label: "高音 C 和弦（孔14+16+18）", holes: [14, 16, 18], chord: true }
   };
   $$("[data-seq]").forEach(function (b) {
     b.addEventListener("click", function () { runSeq(SEQS[b.dataset.seq], 0); });
