@@ -101,9 +101,12 @@
   /* 只有窄到放不下时才允许左右滑动 */
   @media (max-width: 820px) {
     .swipe { display: block; }
-    .board-scroll { overflow-x: auto; }
+    .board-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .board { grid-template-columns: repeat(21, minmax(40px, 1fr)); min-width: 720px; }
-    .hole .hz { white-space: nowrap; }
+    /* 格子只有 40px 宽，"1046.5 Hz" 会被截断。
+       仅当同时显示简谱+音名+频率时才隐藏；单独选「频率」仍要看得到 */
+    .board.d-all .hole .hz { display: none; }
+    .qboard { grid-template-columns: repeat(21, minmax(40px, 1fr)); min-width: 720px; }
   }
   .hole {
     position: relative; display: flex; flex-direction: column; align-items: center;
@@ -160,9 +163,6 @@
   .qboard .hole { cursor: pointer; }
   .qboard .hole .qnum { font-size: clamp(11px, 1.1vw, 14px); font-weight: 700; }
   .qboard .hide-nm .nm, .qboard .hide-nm .hz { display: none !important; }
-  @media (max-width: 820px) {
-    .qboard { grid-template-columns: repeat(21, minmax(40px, 1fr)); min-width: 720px; }
-  }
   .mistakes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .hintline { color: var(--muted); font-size: 12px; }
   footer { color: var(--muted); font-size: 12px; padding: 24px 0 8px; text-align: center; }
@@ -434,7 +434,7 @@
 
   var state = {
     key: load(SKEY, "C"),
-    disp: load(SDISP, "jp"),
+    disp: load(SDISP, "all"),
     vol: Number(load(SVOL, 70)),
     theme: load(STHEME, "dark"),
     sel: Number(load(SSEL, 1)),
@@ -442,7 +442,7 @@
   };
   try { state.off = JSON.parse(load(SOFF, "{}")) || {}; } catch (e) { state.off = {}; }
   // "num" 选项已移除，旧存档回退到简谱
-  if (["jp", "nm", "hz", "all"].indexOf(state.disp) < 0) { state.disp = "jp"; save(SDISP, "jp"); }
+  if (["jp", "nm", "hz", "all"].indexOf(state.disp) < 0) { state.disp = "all"; save(SDISP, "all"); }
 
   /* ---------- 工具 ---------- */
   function $(s) { return document.querySelector(s); }
@@ -660,6 +660,8 @@
       el.querySelector(".nm").style.display = (d === "nm" || d === "all") ? "" : "none";
       el.querySelector(".hz").style.display = (d === "hz" || d === "all") ? "" : "none";
     });
+    /* 窄屏下「全部」会挤爆，标记出来让 CSS 收掉 Hz 行 */
+    board.classList.toggle("d-all", state.disp === "all");
     markSel();
   }
   function markSel() {
