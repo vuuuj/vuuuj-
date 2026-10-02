@@ -155,8 +155,14 @@
   .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
   .note-big { font-size: 40px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
-  .quiz-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-  .quiz-grid button { padding: 9px 0; font-variant-numeric: tabular-nums; }
+  /* 测验用的 21 孔琴格 */
+  .qboard { display: grid; grid-template-columns: repeat(21, minmax(0, 1fr)); gap: clamp(3px, .42vw, 6px); }
+  .qboard .hole { cursor: pointer; }
+  .qboard .hole .qnum { font-size: clamp(11px, 1.1vw, 14px); font-weight: 700; }
+  .qboard .hide-nm .nm, .qboard .hide-nm .hz { display: none !important; }
+  @media (max-width: 820px) {
+    .qboard { grid-template-columns: repeat(21, minmax(40px, 1fr)); min-width: 720px; }
+  }
   .mistakes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .hintline { color: var(--muted); font-size: 12px; }
   footer { color: var(--muted); font-size: 12px; padding: 24px 0 8px; text-align: center; }
@@ -252,14 +258,15 @@
 <section class="panel" id="panel-quiz">
   <div class="card">
     <h2>听音找孔</h2>
-    <p class="desc">听一个音，在下面 21 个孔里点出来。可以只考某个音区。</p>
+    <p class="desc">听一个音，在下面 21 孔琴格里点出对应的孔。可以只考某个音区。<br>
+      测验时琴格<b>不显示音名</b>，答错或答对后才会揭示答案。</p>
     <div class="row">
       <div class="field"><label for="qrange">范围</label>
         <select id="qrange">
           <option value="all">全部 1–21</option>
-          <option value="low">低音区 1–8</option>
-          <option value="mid">中音区 9–16</option>
-          <option value="high">高音区 17–21</option>
+          <option value="low">低音区 C3–B3</option>
+          <option value="mid">中音区 C4–B4</option>
+          <option value="high">高音区 C5–C6</option>
         </select>
       </div>
       <button class="primary" id="qnext">出题</button>
@@ -269,8 +276,8 @@
       <div class="stat">正确 <b id="qright">0</b>/<b id="qtotal">0</b></div>
       <div class="stat">正确率 <b id="qacc">–</b></div>
     </div>
-    <div class="row">
-      <div class="quiz-grid" id="qgrid" style="flex:1"></div>
+    <div class="board-scroll">
+      <div class="qboard" id="qboard"></div>
     </div>
     <div class="row">
       <span class="hintline" id="qhint">按「出题」开始。</span>
@@ -477,14 +484,35 @@
   function audio() {
     if (!AC) {
       AC = new (window.AudioContext || window.webkitAudioContext)();
+      /* 末端限幅：即使多个音叠加也不越界 */
       var comp = AC.createDynamicsCompressor();
-      comp.threshold.value = -14; comp.ratio.value = 6;
+      comp.threshold.value = -10;
+      comp.knee.value = 6;
+      comp.ratio.value = 12;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.12;
       master = AC.createGain();
-      master.gain.value = state.vol / 100 * 0.7;
+      master.gain.value = state.vol / 100 * 0.55;
       master.connect(comp).connect(AC.destination);
     }
     if (AC.state === "suspended") AC.resume();
     return AC;
+  }
+
+  /* ---------- 复音上限 ----------
+     按住不放会触发 keydown 重复事件，叠加几十个音把音量推爆。
+     超过 MAX_VOICES 就把最老的音快速淡掉，保证总响度有界。 */
+  var MAX_VOICES = 10;
+  var voices = [];   // {env, end}
+  function reapVoice(v) {
+    try { v.env.gain.cancelScheduledValues(AC.currentTime); } catch (e) {}
+    try {
+      v.env.gain.setValueAtTime(Math.max(0.0001, v.env.gain.value), AC.currentTime);
+      v.env.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime + 0.05);
+    } catch (e) {}
+  }
+  function trimVoices(keep) {
+    while (voices.length > MAX_VOICES) reapVoice(voices.shift());
   }
 
   /* 复音口琴音色：上下两片簧片微失谐 → 自然颤音 */
@@ -495,6 +523,12 @@
     var dur = opts.dur == null ? 0.85 : opts.dur;
     var vel = opts.vel == null ? 1 : opts.vel;
     var f = mtof(midi);
+
+    /* 同一音高再次触发：先把上一个同音快速收掉，避免叠加 */
+    for (var vi = voices.length - 1; vi >= 0; vi--) {
+      if (voices[vi].midi === midi) { reapVoice(voices[vi]); voices.splice(vi, 1); }
+    }
+    trimVoices();
 
     var env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t0);
@@ -529,6 +563,23 @@
       o.start(t0); o.stop(t0 + dur + 0.3);
     });
     vib.start(t0); vib.stop(t0 + dur + 0.3);
+
+    /* 登记到复音池，到期自动移除 */
+    var v = { midi: midi, env: env, end: t0 + dur + 0.2 };
+    voices.push(v);
+    if (opts.when) {
+      /* 提前调度的音（音阶/和弦）不能计入实时上限，按到期时间剔除 */
+      setTimeout(function () {
+        var i = voices.indexOf(v);
+        if (i >= 0) voices.splice(i, 1);
+      }, Math.max(0, (v.end - ctx.currentTime) * 1000));
+    } else {
+      setTimeout(function () {
+        var i = voices.indexOf(v);
+        if (i >= 0) voices.splice(i, 1);
+      }, (dur + 0.3) * 1000);
+    }
+    trimVoices();
   }
 
   function click(accent, when, vol) {
@@ -624,6 +675,8 @@
     var k = e.key.toLowerCase(), n = 0;
     var i1 = KEYROW1.indexOf(k);
     var i2 = KEYROW2.indexOf(k);
+    /* 按住不放时浏览器会持续发 keydown（e.repeat），这里只认第一次 */
+    if (e.repeat) { e.preventDefault(); return; }
     if (i1 >= 0) n = i1 + 1;
     else if (i2 >= 0) n = i2 + 11;
     else if (k === "arrowright") { n = Math.min(21, state.sel + 1); }
@@ -669,58 +722,88 @@
   /* =========================================================
      6. 听音测验
      ========================================================= */
-  var q = { cur: 0, right: 0, total: 0, streak: 0, miss: {} };
-  var qgrid = $("#qgrid");
-  HOLES.forEach(function (h) {
-    var b = document.createElement("button");
-    b.textContent = h.n; b.dataset.n = h.n;
-    b.addEventListener("click", function () { answer(Number(b.dataset.n), b); });
-    qgrid.appendChild(b);
-  });
-
   function qPool() {
     var r = $("#qrange").value;
-    if (r === "low") return [1,2,3,4,5,6,7,8];
-    if (r === "mid") return [9,10,11,12,13,14,15,16];
-    if (r === "high") return [17,18,19,20,21];
-    if (r === "all") return HOLES.map(function (h) { return h.n; });
-    return HOLES.map(function (h) { return h.n; });
+    return r === "all" ? HOLES.map(function (h) { return h.n; }) : byRegister(r);
   }
+
+  var q = { cur: 0, right: 0, total: 0, streak: 0, miss: {}, locked: false };
+  var qboard = $("#qboard");
+
+  /* 测验棋盘：每格就是一个孔，平时藏起音名，答题后才揭示 */
+  HOLES.forEach(function (h) {
+    var b = document.createElement("button");
+    b.className = "hole hide-nm" + (WHITE[h.n] ? " white" : "");
+    b.id = "q" + h.n;
+    b.dataset.n = h.n;
+    b.title = "孔 " + h.n + "（" + h.dir + "）";
+    b.innerHTML = '<span class="dir ' + (h.dir === "吸" ? "d-draw" : "d-blow") + '">' + h.dir + '</span>' +
+                  '<span class="qnum">' + h.n + '</span>' +
+                  '<span class="jp"></span><span class="nm"></span><span class="hz"></span>';
+    b.addEventListener("click", function () { answer(Number(b.dataset.n)); });
+    qboard.appendChild(b);
+  });
+
+  function qEl(n) { return document.getElementById("q" + n); }
+
+  /* 出题时不许点，等声音放完再解锁 */
   function qNext() {
     var p = qPool();
     q.cur = p[Math.floor(Math.random() * p.length)];
-    q.total++;
+    q.total++; q.locked = true;
     $("#qtotal").textContent = q.total;
     $("#qhint").textContent = "听 —— 哪个孔？";
-    $$("#qgrid button").forEach(function (b) { b.classList.remove("hint", "right", "wrong"); });
-    setTimeout(function () { playHole(q.cur, { dur: 1.3 }); }, 120);
-    setTimeout(function () { holeEl(q.cur).classList.add("hint"); }, 1400);
+    HOLES.forEach(function (h) {
+      var el = qEl(h.n);
+      el.classList.remove("hint", "right", "wrong");
+      el.classList.add("hide-nm");
+      el.querySelector(".jp").textContent = "?";
+      el.querySelector(".nm").textContent = "";
+      el.querySelector(".hz").textContent = "";
+    });
+    note(midiOf(byNum(q.cur)), { dur: 1.3 });
+    setTimeout(function () { q.locked = false; }, 1300);
   }
-  function answer(n, btn) {
-    if (!q.cur) { qNext(); return; }
+
+  function qReveal(n) {
+    var el = qEl(n);
+    el.classList.remove("hide-nm");
+    el.querySelector(".jp").textContent = jpText(byNum(n));
+    el.querySelector(".nm").textContent = noteName(midiOf(byNum(n)));
+    el.querySelector(".hz").textContent = mtof(midiOf(byNum(n))).toFixed(1) + " Hz";
+  }
+
+  function answer(n) {
+    if (q.locked || !q.cur) return;
+    q.locked = true;
     var ok = n === q.cur;
     if (ok) {
-      q.right++; q.streak++; btn.classList.add("right");
+      q.right++; q.streak++;
       delete q.miss[q.cur];
       $("#qhint").textContent = "对！孔 " + n + "　连击 " + q.streak;
-      playHole(n, { dur: 0.7 });
     } else {
-      q.streak = 0; btn.classList.add("wrong");
+      q.streak = 0;
       q.miss[q.cur] = (q.miss[q.cur] || 0) + 1;
       $("#qhint").textContent = "不对，是孔 " + q.cur + "（" + noteName(midiOf(byNum(q.cur))) + "）";
-      playHole(q.cur, { dur: 0.7 });
+      qEl(n).classList.add("wrong");
     }
+    qReveal(q.cur);
+    if (ok) qEl(n).classList.add("right"); else qEl(q.cur).classList.add("hint");
+    note(midiOf(byNum(q.cur)), { dur: 0.7 });
+    light(q.cur);
     $("#qright").textContent = q.right;
     $("#qstreak").textContent = q.streak;
     $("#qacc").textContent = q.total ? Math.round(q.right / q.total * 100) + "%" : "–";
     var miss = Object.keys(q.miss);
     $("#qmiss").innerHTML = miss.length
-      ? "错过的孔：" + miss.map(function (n) { return "<span class='pill'>" + n + " ×" + q.miss[n] + "</span>"; }).join("")
+      ? "错过：" + miss.map(function (x) { return "<span class='pill'>孔" + x + " ×" + q.miss[x] + "</span>"; }).join("")
       : "";
-    setTimeout(qNext, ok ? 620 : 1150);
+    setTimeout(qNext, ok ? 900 : 1600);
   }
   $("#qnext").addEventListener("click", qNext);
-  $("#qreplay").addEventListener("click", function () { if (q.cur) playHole(q.cur, { dur: 1.3 }); });
+  $("#qreplay").addEventListener("click", function () {
+    if (q.cur) note(midiOf(byNum(q.cur)), { dur: 1.3 });
+  });
 
   /* =========================================================
      7. 跟弹训练
@@ -910,7 +993,7 @@
   $("#disp").addEventListener("change", function () { state.disp = this.value; save(SDISP, state.disp); render(); });
   $("#vol").addEventListener("input", function () {
     state.vol = Number(this.value); save(SVOL, String(state.vol));
-    if (master) master.gain.value = state.vol / 100 * 0.7;
+    if (master) master.gain.value = state.vol / 100 * 0.55;
   });
   $("#theme").addEventListener("click", function () {
     state.theme = state.theme === "dark" ? "light" : "dark";
