@@ -1,0 +1,65 @@
+name: Sync index
+
+# 仓库里任何 html 变动（新增/修改/改名）后，自动同步 index.html 里的
+# 「大小 · 日期 · 文件名」。只改数字，链接和显示名仍然由你手写。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "!.github/**"
+  workflow_dispatch: {}          # 也可以在网页上手动点一下触发
+
+permissions:
+  contents: write               # 需要提交回仓库的权限
+
+concurrency:
+  group: sync-index
+  cancel-in-progress: true      # 连着推多次时只跑最后一次
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # 要查每个文件的历史提交日期，浅克隆不够
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 同步 index.html
+        id: sync
+        run: |
+          set +e
+          node .github/scripts/sync-index.mjs
+          code=$?
+          set -e
+          if [ "$code" -gt 1 ]; then
+            echo "::error::sync-index.mjs 执行失败"
+            exit 1
+          fi
+          if [ "$code" -eq 0 ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "没有变化，无需提交"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 提交
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          # 万一你同时改了 index.html，这里跳过而不是硬覆盖
+          if git diff --cached --quiet; then
+            echo "暂存区无变化，跳过"
+            exit 0
+          fi
+          git commit -m "chore: sync index.html file sizes and dates [skip ci]"
+          # 提交前先拉一下，避免和你本地的改动撞车
+          git pull --rebase --autostash origin main
+          git push origin main
