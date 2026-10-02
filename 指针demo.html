@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>指针选择 Demo</title>
+<style>
+:root{
+  --bg:#0b0f1a;--card:#131a2a;--line:#2a3348;--text:#e7ecf7;--muted:#8b96ad;
+  --ok:#34d399;--gold:#fbbf24;--blue:#60a5fa;--pink:#f472b6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 20px 60px}
+h1{margin:0;font-size:22px;letter-spacing:.5px}
+h1 span{color:var(--ok)}
+.head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;max-width:1180px;margin:0 auto 14px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+input[type=search]{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 12px;width:180px;font-size:13px;outline:none}
+input[type=search]:focus{border-color:var(--ok)}
+button{background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:inherit;transition:border-color .15s,color .15s}
+button:hover{border-color:var(--ok);color:var(--ok)}
+button.primary{background:linear-gradient(135deg,#10b981,#059669);border:none;color:#fff;font-weight:600}
+button.primary:hover{filter:brightness(1.1);color:#fff}
+.selbar{max-width:1180px;margin:0 auto 18px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.selbar .lbl{color:var(--muted);font-size:13px;white-space:nowrap}
+.selbar code{flex:1;min-width:200px;background:#0b0f1a;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--gold);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+section{max-width:1180px;margin:0 auto 26px}
+h2{font-size:15px;color:var(--muted);font-weight:600;margin:0 0 10px;border-left:3px solid var(--ok);padding-left:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;user-select:none;transition:border-color .15s,transform .15s;cursor:default}
+.tile:hover{border-color:#3d4a68;transform:translateY(-2px)}
+.tile.sel{border-color:var(--ok);box-shadow:0 0 0 2px rgba(52,211,153,.35)}
+.tile.hide{display:none}
+.\boxed{height:74px;border-radius:8px;background:#0b0f1a;border:1px dashed #2a3348;display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative;overflow:hidden}
+.box .hint{font-size:12px;color:#4d5a75;pointer-events:none}
+.box .big{font-size:30px;line-height:1;pointer-events:none}
+.name{font-size:13px;font-weight:600;margin-bottom:2px}
+.val{font-size:11px;color:var(--muted);font-family:Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.note{max-width:1180px;margin:8px auto 0;color:var(--muted);font-size:12px;line-height:1.8}
+.note b{color:var(--gold);font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>🖱️ 指针选择 <span>Demo</span> — 选一个喜欢的光标</h1>
+  <div class="tools">
+    <input type="search" id="q" placeholder="搜索名称 / 值…">
+    <button class="primary" id="applyBtn">应用到整页</button>
+    <button id="resetBtn">恢复默认</button>
+  </div>
+</div>
+
+<div class="selbar">
+  <span class="lbl">已选中</span>
+  <code id="cssOut">cursor: pointer;</code>
+  <button id="copyBtn">复制 CSS</button>
+</div>
+
+<section>
+  <h2>系统标准光标（28 种）</h2>
+  <div class="grid" id="gSys"></div>
+</section>
+
+<section>
+  <h2>Emoji 光标（SVG 定制，24 种）</h2>
+  <div class="grid" id="gEmoji"></div>
+</section>
+
+<section>
+  <h2>自定义箭头（SVG 定制，10 种）</h2>
+  <div class="grid" id="gArrow"></div>
+</section>
+
+<div class="note">
+  点击任意卡片选中，下方可复制 <b>cursor: …</b> 片段；点「应用到整页」可带着光标在本页任意移动试手感。<br>
+  Emoji / 箭头为内联 SVG data URI（自包含、免图片文件），带 fallback；wait / progress / context-menu 等由系统接管实际样式，这里只展示名称语义。
+</div>
+
+<script>
+var SYS = [
+  ['默认箭头','default'],['手型 · 可点击','pointer'],['文本 I 形','text'],['移动十字','move'],
+  ['精准十字','crosshair'],['帮助问号','help'],['忙碌沙漏','wait'],['进度处理中','progress'],
+  ['禁止放置','not-allowed'],['无法放置','no-drop'],['抓取（可拖）','grab'],['抓住（拖动中）','grabbing'],
+  ['单元格','cell'],['别名/替身','alias'],['复制','copy'],['垂直对齐','vertical-align'],
+  ['右键菜单','context-menu'],['全向滚动','all-scroll'],['列宽调整','col-resize'],['行高调整','row-resize'],
+  ['上下双向','ns-resize'],['左右双向','ew-resize'],['右下左上','nwse-resize'],['左下右上','nesw-resize'],
+  ['放大','zoom-in'],['缩小','zoom-out'],['完全隐藏','none'],['跟随系统','auto']
+];
+
+var EMOJI = [
+  ['金星','⭐'],['闪光','✨'],['火焰','🔥'],['爱心','❤️'],['深情','😍'],['钻石','💎'],
+  ['皇冠','👑'],['靶心','🎯'],['火箭','🚀'],['灯泡','💡'],['音符','🎵'],['手柄','🎮'],
+  ['幸运草','🍀'],['雪花','❄️'],['闪电','⚡'],['樱花','🌸'],['长剑','🗡️'],['盾牌','🛡️'],
+  ['猫咪','🐱'],['小狗','🐶'],['法师','🧙'],['骷髅','💀'],['礼物','🎁'],['钥匙','🔑']
+];
+
+var ARROWS = [
+  ['荧光绿','#34d399'],['霓虹粉','#f472b6'],['土豪金','#fbbf24'],['天空蓝','#60a5fa'],
+  ['警示红','#f87171'],['幻影紫','#a78bfa'],['冰白','#f1f5f9'],['暗夜黑','#111827'],
+  ['空心描边','#34d399'],['橙子','#fb923c']
+];
+
+function svgCur(svg, hx, hy){
+  return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") ' + hx + ' ' + hy + ', auto';
+}
+function emojiSvg(ch){
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36">' +
+    '<text x="3" y="29" font-size="30">' + ch + '</text></svg>';
+}
+function arrowSvg(color, hollow){
+  var fill = hollow ? 'none' : color;
+  var sw = hollow ? 3 : 1.5;
+  var stroke = hollow ? color : '#000';
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">' +
+    '<path d="M6 4 L6 27 L13 21 L18 30 L23 28 L18 19 L27 19 Z" fill="' + fill +
+    '" stroke="' + stroke + '" stroke-width="' + sw + '" stroke-linejoin="round"/></svg>';
+}
+
+var current = 'pointer';
+var applied = null;
+
+function makeTile(name, val, big){
+  var t = document.createElement('div');
+  t.className = 'tile';
+  t.dataset.name = name;
+  t.dataset.val = val;
+  var box = document.createElement('div');
+  box.className = 'box';
+  box.style.cursor = val;
+  if(big){
+    var b = document.createElement('div');
+    b.className = 'big';
+    b.textContent = big;
+    box.appendChild(b);
+  }else{
+    var h = document.createElement('div');
+    h.className = 'hint';
+    h.textContent = '移上来试试 →';
+    box.appendChild(h);
+  }
+  var n = document.createElement('div');
+  n.className = 'name';
+  n.textContent = name;
+  var v = document.createElement('div');
+  v.className = 'val';
+  v.textContent = val.indexOf('data:') === 0 ? val.slice(0, 28) + '…' : 'cursor: ' + val + ';';
+  v.title = val;
+  t.appendChild(box); t.appendChild(n); t.appendChild(v);
+  t.addEventListener('click', function(){ select(t); });
+  return t;
+}
+
+var gSys = document.getElementById('gSys');
+SYS.forEach(function(it){ gSys.appendChild(makeTile(it[0], it[1], null)); });
+
+var gEmoji = document.getElementById('gEmoji');
+EMOJI.forEach(function(it){
+  var v = svgCur(emojiSvg(it[1]), 16, 16);
+  gEmoji.appendChild(makeTile(it[0] + ' ' + it[1], v, it[1]));
+});
+
+var gArrow = document.getElementById('gArrow');
+ARROWS.forEach(function(it, i){
+  var v = svgCur(arrowSvg(it[1], i === 8), 6, 4);
+  gArrow.appendChild(makeTile(it[0] + '箭头', v, null));
+});
+
+function select(t){
+  document.querySelectorAll('.tile.sel').forEach(function(x){ x.classList.remove('sel'); });
+  t.classList.add('sel');
+  current = t.dataset.val;
+  document.getElementById('cssOut').textContent = 'cursor: ' + current + ';';
+  document.getElementById('cssOut').title = 'cursor: ' + current + ';';
+  if(applied !== null) document.documentElement.style.cursor = current;
+}
+
+document.getElementById('applyBtn').addEventListener('click', function(){
+  applied = current;
+  document.documentElement.style.cursor = current;
+  this.textContent = '已应用 ✓';
+  var self = this;
+  setTimeout(function(){ self.textContent = '应用到整页'; }, 1200);
+});
+document.getElementById('resetBtn').addEventListener('click', function(){
+  applied = null;
+  document.documentElement.style.removeProperty('cursor');
+});
+document.getElementById('copyBtn').addEventListener('click', function(){
+  var txt = 'cursor: ' + current + ';';
+  var btn = this;
+  function done(){
+    btn.textContent = '已复制 ✓';
+    setTimeout(function(){ btn.textContent = '复制 CSS'; }, 1200);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ fallback(txt, done); });
+  }else{
+    fallback(txt, done);
+  }
+});
+function fallback(txt, cb){
+  var ta = document.createElement('textarea');
+  ta.value = txt; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta);
+  cb();
+}
+document.getElementById('q').addEventListener('input', function(){
+  var q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.tile').forEach(function(t){
+    var hay = (t.dataset.name + ' ' + t.dataset.val).toLowerCase();
+    t.classList.toggle('hide', q !== '' && hay.indexOf(q) === -1);
+  });
+});
+</script>
+</body>
+</html>
