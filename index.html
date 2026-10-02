@@ -37,8 +37,9 @@
   ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
   li a {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 12px;
+    gap: 4px 12px;
     padding: 14px 16px;
     background: var(--card);
     border: 1px solid var(--border);
@@ -48,8 +49,17 @@
     transition: border-color .15s, transform .15s;
   }
   li a:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .name { font-weight: 600; }
-  .file { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; margin-left: auto; }
+  .name { font-weight: 600; min-width: 0; }
+  .file {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: ui-monospace, Consolas, monospace;
+    margin-left: auto;
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 640px) {
+    .file { margin-left: 0; flex-basis: 100%; }
+  }
 </style>
 </head>
 <body>
