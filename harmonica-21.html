@@ -1,403 +1,922 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>21孔口琴音孔练习</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      background: #000;
-    }
-    .page {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px 80px;
-    }
-    .board {
-      --z: 1;
-      --hole-white: #ffffff;
-      --hole-dark: #3a3a3a;
-      --line: #000000;
-      /* 与「可重叠」版一致：琴格与数字共用同一列定义，才能对齐叠放 */
-      --col: minmax(calc(16px * var(--z)), 1fr);
-      --stage-h: calc(200px * var(--z));
-      border: none;
-      padding: calc(10px * var(--z)) 0;
-      background: transparent;
-      font-family: "Times New Roman", "SimSun", "Songti SC", "STSong", serif;
-      font-size: calc(clamp(11px, 2.2vw, 18px) * var(--z));
-      color: #000000;
-      user-select: none;
-      max-width: 100%;
-    }
-    .board h1 {
-      margin: 0 0 calc(10px * var(--z));
-      font-size: 0.88em;
-      font-weight: normal;
-      color: #ccc;
-      letter-spacing: 0.05em;
-      text-align: center;
-    }
-    .workspace {
-      display: flex;
-      align-items: stretch;
-      gap: calc(10px * var(--z));
-      justify-content: center;
-    }
-    .sliders-left {
-      display: flex;
-      flex-direction: row;
-      align-items: stretch;
-      justify-content: center;
-      flex-shrink: 0;
-      gap: calc(10px * var(--z));
-      padding: calc(4px * var(--z)) 0;
-    }
-    .vc {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: calc(4px * var(--z));
-      width: calc(42px * var(--z));
-      flex: 0 0 auto;
-    }
-    .vlab {
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      font-size: 0.82em;
-      color: #aaa;
-      letter-spacing: 0.2em;
-    }
-    .slider-rail {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex: 1;
-      width: 100%;
-      min-height: calc(100px * var(--z));
-    }
-    input.v-range {
-      -webkit-appearance: none;
-      appearance: none;
-      width: var(--stage-h);
-      height: calc(28px * var(--z));
-      margin: 0;
-      transform: rotate(-90deg);
-      transform-origin: center center;
-      cursor: pointer;
-      background: transparent;
-    }
-    input.v-range:focus {
-      outline: none;
-    }
-    input.v-range:focus-visible {
-      outline: 2px solid #666;
-      outline-offset: 2px;
-    }
-    input.v-range::-webkit-slider-runnable-track {
-      height: calc(10px * var(--z));
-      background: #4a4a4a;
-      border-radius: 2px;
-      border: 1px solid #2a2a2a;
-    }
-    input.v-range::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: calc(16px * var(--z));
-      height: calc(16px * var(--z));
-      margin-top: calc((10px * var(--z) - 16px * var(--z)) / 2);
-      border-radius: 50%;
-      background: #7a7a7a;
-      border: 1px solid #333;
-      box-shadow: 0 0 0 1px #222;
-    }
-    input.v-range::-moz-range-track {
-      height: calc(10px * var(--z));
-      background: #4a4a4a;
-      border-radius: 2px;
-      border: 1px solid #2a2a2a;
-    }
-    input.v-range::-moz-range-thumb {
-      width: calc(16px * var(--z));
-      height: calc(16px * var(--z));
-      border-radius: 50%;
-      background: #7a7a7a;
-      border: 1px solid #333;
-      box-shadow: 0 0 0 1px #222;
-    }
-    /* 舞台：固定高度，避免 flex 把高度拉乱导致层不叠 */
-    .stage {
-      position: relative;
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
-      width: min(92vw, 52rem);
-      height: var(--stage-h);
-      flex-shrink: 0;
-      align-self: center;
-      overflow: hidden;
-      border: none;
-      background: transparent;
-    }
-    /* 琴格：与可重叠版相同（整行垂直居中，作底） */
-    .bg-strip {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      z-index: 0;
-      display: grid;
-      grid-template-columns: repeat(21, var(--col));
-      gap: 1px;
-      background: var(--line);
-      pointer-events: none;
-    }
-    .bg-strip .hole {
-      aspect-ratio: 1 / 1.12;
-      min-height: calc(26px * var(--z));
-      background: var(--hole-dark);
-    }
-    .bg-strip .hole.white {
-      background: var(--hole-white);
-    }
-    .bg-strip .hole.dark {
-      background: var(--hole-dark);
-    }
-    /* 吸、吹各一层，均铺满舞台，数字在层内 translateY，叠在琴格之上 */
-    .layer {
-      position: absolute;
-      left: 0;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 1;
-      overflow: hidden;
-      pointer-events: none;
-      background: transparent;
-    }
-    .layer-blow {
-      z-index: 2;
-    }
-    .clip-inner {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-      will-change: transform;
-    }
-    /* 数字行：列定义与琴格一致（可重叠版） */
-    .nums {
-      display: grid;
-      grid-template-columns: repeat(21, var(--col));
-      gap: 0;
-      background: transparent;
-      min-height: calc(44px * var(--z));
-    }
-    .nums .slot {
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: calc(44px * var(--z));
-      line-height: 1;
-    }
-    .nums .note {
-      font-variant-numeric: tabular-nums;
-      color: #0a0a0a;
-      text-shadow: 0 0 calc(2px * var(--z)) #fff, 0 0 calc(1px * var(--z)) rgba(255, 255, 255, 0.9);
-    }
-    .zoom-dock {
-      position: fixed;
-      left: 12px;
-      bottom: 12px;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 12px;
-      max-width: min(440px, calc(100vw - 24px));
-      background: rgba(24, 24, 24, 0.95);
-      border: 1px solid #555;
-      border-radius: 6px;
-      color: #ccc;
-      font-size: 14px;
-      font-family: system-ui, "Segoe UI", sans-serif;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-    }
-    .zoom-dock label {
-      flex-shrink: 0;
-      color: #bbb;
-    }
-    .zoom-dock input[type="range"] {
-      flex: 1;
-      min-width: 100px;
-      accent-color: #777;
-    }
-    .zoom-dock #zoom-lbl {
-      min-width: 3em;
-      text-align: right;
-      color: #e0e0e0;
-      font-variant-numeric: tabular-nums;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>21孔复音口琴 · 交互练习板</title>
+<style>
+  :root {
+    --bg: #12100d;
+    --bg2: #1b1813;
+    --card: #221e18;
+    --line: #3a342a;
+    --text: #f0e9dc;
+    --muted: #9c9384;
+    --amber: #e8a33d;
+    --amber-dim: #a8741f;
+    --cyan: #58c6d6;
+    --good: #6ec27a;
+    --bad: #e2685f;
+    --shadow: 0 6px 22px rgba(0,0,0,.45);
+  }
+  html[data-theme="light"] {
+    --bg: #f6f3ec;
+    --bg2: #fffdf8;
+    --card: #ffffff;
+    --line: #ddd5c6;
+    --text: #241f18;
+    --muted: #6d6558;
+    --amber: #b3761a;
+    --amber-dim: #d9a441;
+    --cyan: #1f7f8f;
+    --good: #2e7d3a;
+    --bad: #c03a30;
+    --shadow: 0 4px 16px rgba(80,60,20,.12);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    padding-bottom: 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 16px; }
+
+  /* ---------- header ---------- */
+  header {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--bg2), var(--bg));
+    position: sticky; top: 0; z-index: 30;
+    backdrop-filter: blur(8px);
+  }
+  .top { display: flex; align-items: center; gap: 14px; padding: 14px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; margin-right: auto; }
+  .brand .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px rgba(232,163,61,.18); }
+  .brand small { font-weight: 400; color: var(--muted); font-size: 12px; }
+
+  .field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  select, button, input[type=range] {
+    font: inherit; color: var(--text); background: var(--card);
+    border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px;
+  }
+  select { cursor: pointer; }
+  button { cursor: pointer; transition: border-color .12s, background .12s, transform .08s; }
+  button:hover { border-color: var(--amber); }
+  button:active { transform: translateY(1px); }
+  button.primary { background: var(--amber); color: #17130c; border-color: var(--amber); font-weight: 600; }
+  html[data-theme="light"] button.primary { color: #fff; }
+  button.on { border-color: var(--amber); color: var(--amber); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=range] { padding: 0; accent-color: var(--amber); }
+
+  /* ---------- tabs ---------- */
+  nav.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 10px 0; }
+  nav.tabs button {
+    white-space: nowrap; background: transparent; border: 1px solid transparent;
+    padding: 7px 14px; border-radius: 999px; color: var(--muted);
+  }
+  nav.tabs button[aria-selected="true"] {
+    background: var(--card); border-color: var(--amber); color: var(--amber); font-weight: 600;
+  }
+
+  section.panel { display: none; padding-top: 22px; }
+  section.panel.active { display: block; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+  .card > h2 { margin: 0 0 4px; font-size: 15px; }
+  .card > .desc { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 12px; }
+  .spacer { flex: 1; }
+
+  /* ---------- hole board ---------- */
+  .board-scroll { overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  .board {
+    display: grid; grid-template-columns: repeat(21, minmax(56px, 1fr));
+    gap: 6px; min-width: 1040px;
+  }
+  .swipe { display: none; color: var(--muted); font-size: 12px; margin: -4px 0 8px; }
+  @media (max-width: 1100px) {
+    .swipe { display: block; }
+    .board { grid-template-columns: repeat(21, minmax(44px, 1fr)); min-width: 800px; }
+    .hole { padding: 9px 3px 7px; }
+    .hole .jp { font-size: 16px; }
+    .hole .hz { font-size: 9px; }
+    .quiz-grid { grid-template-columns: repeat(6, 1fr); }
+  }
+  @media (max-width: 620px) {
+    .top { gap: 8px; padding: 10px 0; }
+    .brand { width: 100%; }
+    .brand small { display: none; }
+    .board { min-width: 660px; }
+    .hole .jp { font-size: 15px; }
+    .hole .hz { display: none !important; }
+    .quiz-grid { grid-template-columns: repeat(5, 1fr); }
+    .wrap { padding: 0 10px; }
+  }
+  .hole {
+    position: relative; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; padding: 12px 4px 9px; border-radius: 9px;
+    background: #332c22; border: 1px solid #4a4033; color: #e8dcc6;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  html[data-theme="light"] .hole { background: #efe8d9; border-color: #d8cdb6; color: #241f18; }
+  .hole.white { background: #fbf7ec; border-color: #d8cfb8; color: #1a1710; }
+  html[data-theme="light"] .hole.white { background: #fff; }
+  .hole:hover { border-color: var(--amber); }
+  .hole .num { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hole .jp { font-size: 19px; font-weight: 700; line-height: 1.15; font-family: "Times New Roman", "SimSun", serif; }
+  .hole .nm { font-size: 13px; font-weight: 600; color: var(--amber); }
+  .hole .hz { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hole .tag {
+    position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; padding: 1px 6px; border-radius: 999px;
+    background: var(--amber); color: #17130c; font-weight: 700;
+  }
+  .hole.lit { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(232,163,61,.4), inset 0 0 22px rgba(232,163,61,.28); }
+  .hole.hint { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(88,198,214,.35); }
+  .hole.wrong { animation: shake .35s; border-color: var(--bad); }
+  .hole.right { animation: pop .3s; }
+  @keyframes shake { 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
+  @keyframes pop { 50% { transform: scale(1.07); } }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 12px; margin-top: 12px; }
+  .legend b { color: var(--text); font-weight: 600; }
+  kbd {
+    background: var(--bg2); border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; font: 12px/1.6 ui-monospace, Consolas, monospace;
+  }
+
+  /* ---------- meter ---------- */
+  .meter { height: 10px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); overflow: hidden; min-width: 180px; }
+  .meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--good), var(--amber), var(--bad)); transition: width .12s; }
+  .stat { font-size: 13px; color: var(--muted); }
+  .stat b { color: var(--text); font-size: 17px; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+  .note-big { font-size: 40px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .quiz-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .quiz-grid button { padding: 9px 0; font-variant-numeric: tabular-nums; }
+  .mistakes { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .hintline { color: var(--muted); font-size: 12px; }
+  footer { color: var(--muted); font-size: 12px; padding: 24px 0 8px; text-align: center; }
+  .flash { animation: flashbg .5s; }
+  @keyframes flashbg { from { background: rgba(232,163,61,.22); } }
+</style>
 </head>
 <body>
-  <div class="page">
-    <div class="board" id="board" aria-label="21孔口琴练习">
-      <h1>21孔 · 琴格背景 · 吸/吹数字可叠</h1>
-      <div class="workspace">
-        <aside class="sliders-left" aria-label="上下对齐滑块">
-          <div class="vc">
-            <span class="vlab" title="吸气音">吸</span>
-            <div class="slider-rail">
-              <input id="sl-draw" class="v-range" type="range" min="0" max="100" value="50" aria-label="吸行数字上下位置" />
-            </div>
-          </div>
-          <div class="vc">
-            <span class="vlab" title="吹气音">吹</span>
-            <div class="slider-rail">
-              <input id="sl-blow" class="v-range" type="range" min="0" max="100" value="50" aria-label="吹行数字上下位置" />
-            </div>
-          </div>
-        </aside>
-        <div class="stage" id="stage">
-          <div class="bg-strip" title="琴格：2、8、14、20 为白孔；黑线为孔间分隔">
-            <div class="hole dark"></div>
-            <div class="hole white"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole white"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole white"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole dark"></div>
-            <div class="hole white"></div>
-            <div class="hole dark"></div>
-          </div>
-          <div class="layer layer-draw" id="clip-draw">
-            <div class="clip-inner" id="inner-draw">
-              <div class="nums" role="row">
-                <div class="slot"><span class="note">2&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">4&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">6&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">7&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">2</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">4</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">6</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">7</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">2&#x0307;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">4&#x0307;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">6&#x0307;</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="layer layer-blow" id="clip-blow">
-            <div class="clip-inner" id="inner-blow">
-              <div class="nums" role="row">
-                <div class="slot"></div>
-                <div class="slot"><span class="note">1&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">3&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">5&#x0323;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">1</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">3</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">5</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">1&#x0307;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">3&#x0307;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">5&#x0307;</span></div>
-                <div class="slot"></div>
-                <div class="slot"><span class="note">1&#x0307;&#x0307;</span></div>
-                <div class="slot"></div>
-              </div>
-            </div>
-          </div>
-        </div>
+
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><span class="dot"></span>21孔复音口琴 <small>交互练习板</small></div>
+      <div class="field">
+        <label for="key">调</label>
+        <select id="key" title="口琴调性，整体移调">
+          <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option>
+          <option>F</option><option>Gb</option><option>G</option><option>Ab</option><option>A</option>
+          <option>Bb</option><option>B</option>
+        </select>
       </div>
+      <div class="field">
+        <label for="disp">显示</label>
+        <select id="disp" title="琴孔上的信息">
+          <option value="jp">简谱</option>
+          <option value="nm">音名</option>
+          <option value="hz">频率</option>
+          <option value="all">全部</option>
+          <option value="num">只孔号</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="vol">音量</label>
+        <input id="vol" type="range" min="0" max="100" value="70" style="width:88px">
+      </div>
+      <button id="theme" title="切换深/浅色">◐</button>
+      <button id="reset" title="清空所有保存的设置">重置</button>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-panel="play" aria-selected="true">练习</button>
+      <button role="tab" data-panel="quiz" aria-selected="false">听音测验</button>
+      <button role="tab" data-panel="train" aria-selected="false">跟弹训练</button>
+      <button role="tab" data-panel="metro" aria-selected="false">节拍器</button>
+      <button role="tab" data-panel="tune" aria-selected="false">调音器</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ 练习 ============ -->
+<section class="panel active" id="panel-play">
+  <div class="card">
+    <h2>21孔琴格</h2>
+    <p class="desc">点一下就发声。复音口琴每孔一音、吹吸同音，簧片双片微失谐所以自带颤音（tremolo）。<br>
+      白孔为 <b>2 / 8 / 14 / 20</b>。整把琴音域 <b>C3 – A5</b>，正好三个八度的 C 大调音阶。</p>
+    <div class="swipe">← 左右滑动查看全部 21 孔 →</div>
+    <div class="board-scroll">
+      <div class="board" id="board"></div>
+    </div>
+    <div class="legend">
+      <span><b>Shift+点击</b> 该孔 +1 八度</span>
+      <span><b>Alt+点击</b> 该孔 −1 八度</span>
+      <span><b>右键</b> 还原该孔</span>
+      <span>键盘 <kbd>1</kbd>–<kbd>0</kbd> = 孔 1–10，<kbd>Q</kbd>–<kbd>P</kbd> = 孔 11–21，<kbd>←</kbd><kbd>→</kbd> 选孔，<kbd>空格</kbd> 播放</span>
     </div>
   </div>
-  <div class="zoom-dock" id="zoom-dock" role="region" aria-label="整体缩放">
-    <label for="zoom-sl">整体缩放</label>
-    <input id="zoom-sl" type="range" min="60" max="140" value="100" step="1" aria-valuemin="60" aria-valuemax="140" />
-    <span id="zoom-lbl">100%</span>
+
+  <div class="card">
+    <h2>一键练习</h2>
+    <p class="desc">全部用 Web Audio 实时合成，跟着按就行。</p>
+    <div class="row">
+      <button class="primary" data-seq="scale">上行音阶（21音）</button>
+      <button data-seq="scaledn">下行音阶</button>
+      <button data-seq="chord1">低音 C 和弦（孔1+3+5）</button>
+      <button data-seq="chord2">中音 C 和弦（孔9+11+13）</button>
+      <button data-seq="chord3">高音 C 和弦（孔17+18+19）</button>
+    </div>
+    <div class="row">
+      <div class="field"><label for="seqbpm">速度</label>
+        <input id="seqbpm" type="range" min="40" max="200" value="90" style="width:130px">
+        <span id="seqbpmv" class="stat">90 BPM</span>
+      </div>
+      <span class="pill" id="seqnow">—</span>
+      <button id="seqstop">停止</button>
+    </div>
   </div>
-  <script>
-    (function () {
-      var board = document.getElementById("board");
-      var zoomSl = document.getElementById("zoom-sl");
-      var zoomLbl = document.getElementById("zoom-lbl");
+</section>
 
-      function bindSlider(slider, inner) {
-        var clip = inner.parentElement;
-        function update() {
-          var ch = clip.clientHeight;
-          var ih = inner.offsetHeight;
-          var maxY = Math.max(0, ch - ih);
-          var min = Number(slider.min);
-          var max = Number(slider.max);
-          var t = (Number(slider.value) - min) / (max - min || 1);
-          var y = (1 - t) * maxY;
-          inner.style.transform = "translateY(" + y + "px)";
-        }
-        slider.addEventListener("input", update);
-        window.addEventListener("resize", update);
-        if (document.fonts && document.fonts.ready) {
-          document.fonts.ready.then(update);
-        }
-        requestAnimationFrame(update);
-        return update;
+<!-- ============ 测验 ============ -->
+<section class="panel" id="panel-quiz">
+  <div class="card">
+    <h2>听音找孔</h2>
+    <p class="desc">听一个音，在下面 21 个孔里点出来。可以只考某个音区。</p>
+    <div class="row">
+      <div class="field"><label for="qrange">范围</label>
+        <select id="qrange">
+          <option value="all">全部 1–21</option>
+          <option value="low">低音区 1–8</option>
+          <option value="mid">中音区 9–16</option>
+          <option value="high">高音区 17–21</option>
+        </select>
+      </div>
+      <button class="primary" id="qnext">出题</button>
+      <button id="qreplay">重听</button>
+      <div class="spacer"></div>
+      <div class="stat">连击 <b id="qstreak">0</b></div>
+      <div class="stat">正确 <b id="qright">0</b>/<b id="qtotal">0</b></div>
+      <div class="stat">正确率 <b id="qacc">–</b></div>
+    </div>
+    <div class="row">
+      <div class="quiz-grid" id="qgrid" style="flex:1"></div>
+    </div>
+    <div class="row">
+      <span class="hintline" id="qhint">按「出题」开始。</span>
+    </div>
+    <div class="mistakes" id="qmiss"></div>
+  </div>
+</section>
+
+<!-- ============ 跟弹 ============ -->
+<section class="panel" id="panel-train">
+  <div class="card">
+    <h2>跟弹训练</h2>
+    <p class="desc">页面按节拍依次点亮琴孔并发声，你跟着用自己的口琴一起吹。开循环可以反复过同一段。</p>
+    <div class="row">
+      <div class="field"><label for="trange">段落</label>
+        <select id="trange">
+          <option value="1-8">低音区 1–8</option>
+          <option value="9-16">中音区 9–16</option>
+          <option value="17-21">高音区 17–21</option>
+          <option value="1-21">全琴 1–21</option>
+          <option value="odd">奇数孔 1,3,5…</option>
+          <option value="even">偶数孔 2,4,6…</option>
+        </select>
+      </div>
+      <div class="field"><label for="tbpm">速度</label>
+        <input id="tbpm" type="range" min="30" max="180" value="60" style="width:120px">
+        <span id="tbpmv" class="stat">60 BPM</span>
+      </div>
+      <button class="primary" id="tgo">开始</button>
+      <button id="tloop" class="on" title="循环这一段">循环 开</button>
+      <button id="tstop">停止</button>
+    </div>
+    <div class="row">
+      <span class="hintline">当前：<b id="tnow">—</b>　·　练习呼吸时建议先关掉循环，从 40 BPM 开始。</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 节拍器 ============ -->
+<section class="panel" id="panel-metro">
+  <div class="card">
+    <h2>节拍器</h2>
+    <p class="desc">点「呼吸练习」可以让节拍器每拍都帮你吹一次选中的孔，用来练稳定的气息和舌头。</p>
+    <div class="row">
+      <div class="field"><label for="mbpm">BPM</label>
+        <input id="mbpm" type="range" min="30" max="240" value="90" style="width:150px">
+        <span id="mbpmv" class="stat">90</span>
+      </div>
+      <div class="field"><label for="msig">拍号</label>
+        <select id="msig"><option>4</option><option>3</option><option>6</option><option>2</option></select>
+      </div>
+      <div class="field"><label for="mvol">音量</label>
+        <input id="mvol" type="range" min="0" max="100" value="60" style="width:90px">
+      </div>
+      <button class="primary" id="mgo">开始</button>
+      <button id="mstop">停止</button>
+    </div>
+    <div class="row">
+      <div class="field">
+        <input type="checkbox" id="mbeat" checked>
+        <label for="mbeat">呼吸练习：每拍吹一次 <b id="mhole">孔 1</b></label>
+      </div>
+      <div class="field">
+        <label for="mh">选孔</label>
+        <select id="mh"></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="stat" id="mbeatdot" style="font-size:34px;line-height:1;color:var(--amber)">·</div>
+      <span class="hintline" id="mcount">—</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 调音器 ============ -->
+<section class="panel" id="panel-tune">
+  <div class="card">
+    <h2>调音器</h2>
+    <p class="desc">用麦克风实时测你正在吹的音，看它偏多少音分（cent）。或者直接播放参考音来对音。</p>
+    <div class="row">
+      <button class="primary" id="tunmic">开启麦克风</button>
+      <span class="pill" id="tunstate">未开启</span>
+      <div class="spacer"></div>
+      <button id="refplay">播放 1孔 参考音</button>
+      <button data-ref="1,3,5">播放 C 和弦（1+3+5孔）</button>
+      <button data-ref="all">巡检全琴 21 音</button>
+    </div>
+    <div class="row">
+      <div class="note-big" id="tunnote">--</div>
+      <div class="stat" id="tunhz">— Hz</div>
+      <div class="spacer"></div>
+      <div class="meter"><i id="tunbar"></i></div>
+      <div class="stat" id="tuncents">—</div>
+    </div>
+    <div class="row"><span class="hintline">指针在中间 = 音准。向左偏说明吹低了，向右偏说明吹高了。</span></div>
+  </div>
+</section>
+
+<footer>数据来自你原来的音阶图；音高按 MIDI 标准折算（C4 = 261.63Hz）。所有设置存在浏览器本地。</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     1. 音阶数据（C 调 21 孔复音口琴，每孔一音）
+     孔号 1→21，音高 C3 → A5，完整三个八度 C 大调
+     ========================================================= */
+  var HOLES = [
+    { n: 1,  jp: [2,-1], midi: 50 }, // 低2  D3
+    { n: 2,  jp: [1,-1], midi: 48 }, // 低1  C3  白孔
+    { n: 3,  jp: [4,-1], midi: 53 }, // 低4  F3
+    { n: 4,  jp: [3,-1], midi: 52 }, // 低3  E3
+    { n: 5,  jp: [6,-1], midi: 57 }, // 低6  A3
+    { n: 6,  jp: [5,-1], midi: 55 }, // 低5  G3
+    { n: 7,  jp: [7,-1], midi: 59 }, // 低7  B3
+    { n: 8,  jp: [7,-1], midi: 59 }, // 低7  B3  白孔
+    { n: 9,  jp: [2, 0], midi: 62 }, // 中2  D4
+    { n: 10, jp: [1, 0], midi: 60 }, // 中1  C4
+    { n: 11, jp: [4, 0], midi: 65 }, // 中4  F4
+    { n: 12, jp: [3, 0], midi: 64 }, // 中3  E4
+    { n: 13, jp: [6, 0], midi: 69 }, // 中6  A4
+    { n: 14, jp: [5, 0], midi: 67 }, // 中5  G4  白孔
+    { n: 15, jp: [7, 0], midi: 71 }, // 中7  B4
+    { n: 16, jp: [1, 1], midi: 72 }, // 高1  C5
+    { n: 17, jp: [2, 1], midi: 74 }, // 高2  D5
+    { n: 18, jp: [3, 1], midi: 76 }, // 高3  E5
+    { n: 19, jp: [4, 1], midi: 77 }, // 高4  F5
+    { n: 20, jp: [5, 1], midi: 79 }, // 高5  G5  白孔
+    { n: 21, jp: [6, 1], midi: 81 }  // 高6  A5
+  ];
+  var WHITE = { 2: 1, 8: 1, 14: 1, 20: 1 };
+
+  var NOTE_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  var NOTE_FLAT  = ["C","Db","D","Eb","E","F","Gb","G","Ab","A","Bb","B"];
+  var FLAT_KEYS  = { Db:1, Eb:1, Gb:1, Ab:1, Bb:1, F:1 };
+  var KEY_SEMI   = { C:0, Db:1, D:2, Eb:3, E:4, F:5, Gb:6, G:7, Ab:8, A:9, Bb:10, B:11 };
+  var JP_CHAR    = ["1","2","3","4","5","6","7"];
+  var LOW = "̣", DOT = "̇", DOT2 = "̈";
+
+  /* ---------- 存储 ---------- */
+  var SKEY = "harm21.key", SDISP = "harm21.disp", SVOL = "harm21.vol",
+      SOFF = "harm21.off", STHEME = "harm21.theme", SSEL = "harm21.sel";
+  function load(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+  function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+  var state = {
+    key: load(SKEY, "C"),
+    disp: load(SDISP, "jp"),
+    vol: Number(load(SVOL, 70)),
+    theme: load(STHEME, "dark"),
+    sel: Number(load(SSEL, 1)),
+    off: {}   // 每孔八度偏移
+  };
+  try { state.off = JSON.parse(load(SOFF, "{}")) || {}; } catch (e) { state.off = {}; }
+
+  /* ---------- 工具 ---------- */
+  function $(s) { return document.querySelector(s); }
+  function $$(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+  function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  function noteName(midi) {
+    var names = FLAT_KEYS[state.key] ? NOTE_FLAT : NOTE_SHARP;
+    return names[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1);
+  }
+  function jpText(hole) {
+    var off = state.off[hole.n] || 0;
+    var oct = hole.jp[1] + off;
+    var s = JP_CHAR[hole.jp[0] - 1];
+    if (oct < 0) s += LOW.repeat(-oct);
+    else if (oct === 1) s += DOT;
+    else if (oct >= 2) s += DOT2.repeat(oct - 1);
+    return s;
+  }
+  function midiOf(hole) { return hole.midi + 12 * (state.off[hole.n] || 0) + KEY_SEMI[state.key]; }
+  function byNum(n) { return HOLES[n - 1]; }
+
+  /* =========================================================
+     2. 发声引擎
+     ========================================================= */
+  var AC = null, master = null;
+  function audio() {
+    if (!AC) {
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      var comp = AC.createDynamicsCompressor();
+      comp.threshold.value = -14; comp.ratio.value = 6;
+      master = AC.createGain();
+      master.gain.value = state.vol / 100 * 0.7;
+      master.connect(comp).connect(AC.destination);
+    }
+    if (AC.state === "suspended") AC.resume();
+    return AC;
+  }
+
+  /* 复音口琴音色：上下两片簧片微失谐 → 自然颤音 */
+  function note(midi, opts) {
+    opts = opts || {};
+    var ctx = audio();
+    var t0 = ctx.currentTime + (opts.when || 0);
+    var dur = opts.dur == null ? 0.85 : opts.dur;
+    var vel = opts.vel == null ? 1 : opts.vel;
+    var f = mtof(midi);
+
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t0);
+    env.gain.exponentialRampToValueAtTime(vel, t0 + 0.022);
+    env.gain.exponentialRampToValueAtTime(vel * 0.7, t0 + 0.11);
+    env.gain.setValueAtTime(vel * 0.7, t0 + Math.max(0.12, dur));
+    env.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.16);
+
+    var lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(Math.min(12000, f * 8), t0);
+    lp.frequency.exponentialRampToValueAtTime(Math.min(9000, f * 4.5), t0 + 0.3);
+    lp.Q.value = 0.6;
+
+    var pk = ctx.createBiquadFilter();
+    pk.type = "peaking"; pk.frequency.value = Math.min(6000, f * 2.6);
+    pk.gain.value = 4.5; pk.Q.value = 1.1;
+
+    env.connect(lp).connect(pk).connect(master);
+
+    var vib = ctx.createOscillator(); vib.frequency.value = 5.3;
+    var vg = ctx.createGain(); vg.gain.value = 6;      // ±6 音分的颤音
+    vib.connect(vg);
+
+    [[1, "sawtooth", 0.55], [1.0035, "triangle", 0.4], [2.995, "sine", 0.12]].forEach(function (v) {
+      var o = ctx.createOscillator();
+      o.type = v[1];
+      o.frequency.setValueAtTime(f * v[0], t0);
+      vg.connect(o.detune);
+      var g = ctx.createGain(); g.gain.value = v[2];
+      o.connect(g).connect(env);
+      o.start(t0); o.stop(t0 + dur + 0.3);
+    });
+    vib.start(t0); vib.stop(t0 + dur + 0.3);
+  }
+
+  function click(accent, when, vol) {
+    var ctx = audio();
+    var t0 = ctx.currentTime + (when || 0);
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "square";
+    o.frequency.value = accent ? 1760 : 1180;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime((vol == null ? 0.5 : vol) * (accent ? 1 : 0.62), t0 + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+    o.connect(g).connect(master);
+    o.start(t0); o.stop(t0 + 0.06);
+  }
+
+  /* ---------- 视觉反馈 ---------- */
+  var litTimer = {};
+  function light(n, ms) {
+    var el = holeEl(n); if (!el) return;
+    el.classList.add("lit");
+    clearTimeout(litTimer[n]);
+    litTimer[n] = setTimeout(function () { el.classList.remove("lit"); }, ms || 420);
+  }
+  function holeEl(n) { return document.getElementById("h" + n); }
+
+  function playHole(n, opts) {
+    var h = byNum(n); if (!h) return;
+    note(midiOf(h), opts);
+    light(n);
+    if (opts && opts.long) light(n, 1600);
+    state.sel = n; save(SSEL, String(n)); markSel();
+  }
+
+  /* =========================================================
+     3. 渲染 21 孔
+     ========================================================= */
+  var board = $("#board");
+  HOLES.forEach(function (h) {
+    var b = document.createElement("button");
+    b.className = "hole" + (WHITE[h.n] ? " white" : "");
+    b.id = "h" + h.n;
+    b.dataset.n = h.n;
+    b.title = "孔 " + h.n + "　Shift+点击 +1 八度 / Alt+点击 −1 八度 / 右键还原";
+    b.innerHTML = '<span class="tag"></span><span class="num"></span><span class="jp"></span><span class="nm"></span><span class="hz"></span>';
+    board.appendChild(b);
+
+    b.addEventListener("click", function (e) {
+      if (e.shiftKey) { nudge(h.n, +1); return; }
+      if (e.altKey) { nudge(h.n, -1); return; }
+      playHole(h.n);
+    });
+    b.addEventListener("contextmenu", function (e) { e.preventDefault(); nudge(h.n, 0); });
+  });
+
+  function nudge(n, dir) {
+    var cur = state.off[n] || 0;
+    state.off[n] = dir === 0 ? 0 : cur + dir;
+    if (!state.off[n]) delete state.off[n];
+    save(SOFF, JSON.stringify(state.off));
+    render();
+    playHole(n);
+  }
+
+  function render() {
+    HOLES.forEach(function (h) {
+      var el = holeEl(h.n); if (!el) return;
+      var m = midiOf(h);
+      var off = state.off[h.n] || 0;
+      el.querySelector(".num").textContent = h.n;
+      el.querySelector(".jp").textContent = jpText(h);
+      el.querySelector(".nm").textContent = noteName(m);
+      el.querySelector(".hz").textContent = mtof(m).toFixed(1) + " Hz";
+      el.querySelector(".tag").textContent = off ? (off > 0 ? "+" + off + "8ve" : off + "8ve") : "";
+      var d = state.disp;
+      el.querySelector(".jp").style.display = (d === "jp" || d === "all") ? "" : "none";
+      el.querySelector(".nm").style.display = (d === "nm" || d === "all") ? "" : "none";
+      el.querySelector(".hz").style.display = (d === "hz" || d === "all") ? "" : "none";
+      el.querySelector(".num").style.fontWeight = d === "num" ? "700" : "";
+      el.querySelector(".num").style.fontSize = d === "num" ? "15px" : "";
+    });
+    markSel();
+  }
+  function markSel() {
+    HOLES.forEach(function (h) { var e = holeEl(h.n); if (e) e.style.outline = h.n === state.sel ? "2px solid var(--cyan)" : "none"; });
+  }
+
+  /* =========================================================
+     4. 键盘演奏
+     ========================================================= */
+  var KEYROW1 = "1234567890", KEYROW2 = "qwertyuiop";
+  document.addEventListener("keydown", function (e) {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    var k = e.key.toLowerCase(), n = 0;
+    var i1 = KEYROW1.indexOf(k);
+    var i2 = KEYROW2.indexOf(k);
+    if (i1 >= 0) n = i1 + 1;
+    else if (i2 >= 0) n = i2 + 11;
+    else if (k === "arrowright") { n = Math.min(21, state.sel + 1); }
+    else if (k === "arrowleft") { n = Math.max(1, state.sel - 1); }
+    else if (k === " ") { n = state.sel; }
+    else return;
+    e.preventDefault();
+    playHole(n);
+  });
+
+  /* =========================================================
+     5. 一键序列（音阶 / 和弦）
+     ========================================================= */
+  var seqTimer = null;
+  function stopSeq() { clearTimeout(seqTimer); seqTimer = null; $("#seqnow").textContent = "—"; }
+
+  var SEQS = {
+    scale:   { label: "上行音阶", holes: HOLES.map(function (h) { return h.n; }) },
+    scaledn: { label: "下行音阶", holes: HOLES.map(function (h) { return h.n; }).reverse() },
+    chord1:  { label: "低音 C 和弦", holes: [1, 3, 5], chord: true },
+    chord2:  { label: "中音 C 和弦", holes: [9, 11, 13], chord: true },
+    chord3:  { label: "高音 C 和弦", holes: [17, 18, 19], chord: true }
+  };
+  $$("[data-seq]").forEach(function (b) {
+    b.addEventListener("click", function () { runSeq(SEQS[b.dataset.seq], 0); });
+  });
+  $("#seqstop").addEventListener("click", stopSeq);
+
+  function runSeq(seq, i) {
+    if (!seq) return;
+    if (i >= seq.holes.length) { $("#seqnow").textContent = seq.label + " 完成"; seqTimer = null; return; }
+    var beat = 60 / Number($("#seqbpm").value);
+    var len = seq.chord ? beat : Math.min(beat, 0.75);
+    seq.holes.forEach(function (n, k) {
+      note(midiOf(byNum(n)), { when: k * len * 0.55, dur: len * 1.3, vel: 0.9 });
+      light(n, len * 1400);
+    });
+    $("#seqnow").textContent = seq.label + " · 孔 " + seq.holes[i] + "（" + (i + 1) + "/" + seq.holes.length + "）";
+    seqTimer = setTimeout(function () { runSeq(seq, i + 1); }, len * 1000);
+  }
+  $("#seqbpm").addEventListener("input", function () { $("#seqbpmv").textContent = this.value + " BPM"; });
+
+  /* =========================================================
+     6. 听音测验
+     ========================================================= */
+  var q = { cur: 0, right: 0, total: 0, streak: 0, miss: {} };
+  var qgrid = $("#qgrid");
+  HOLES.forEach(function (h) {
+    var b = document.createElement("button");
+    b.textContent = h.n; b.dataset.n = h.n;
+    b.addEventListener("click", function () { answer(Number(b.dataset.n), b); });
+    qgrid.appendChild(b);
+  });
+
+  function qPool() {
+    var r = $("#qrange").value;
+    if (r === "low") return [1,2,3,4,5,6,7,8];
+    if (r === "mid") return [9,10,11,12,13,14,15,16];
+    if (r === "high") return [17,18,19,20,21];
+    if (r === "all") return HOLES.map(function (h) { return h.n; });
+    return HOLES.map(function (h) { return h.n; });
+  }
+  function qNext() {
+    var p = qPool();
+    q.cur = p[Math.floor(Math.random() * p.length)];
+    q.total++;
+    $("#qtotal").textContent = q.total;
+    $("#qhint").textContent = "听 —— 哪个孔？";
+    $$("#qgrid button").forEach(function (b) { b.classList.remove("hint", "right", "wrong"); });
+    setTimeout(function () { playHole(q.cur, { dur: 1.3 }); }, 120);
+    setTimeout(function () { holeEl(q.cur).classList.add("hint"); }, 1400);
+  }
+  function answer(n, btn) {
+    if (!q.cur) { qNext(); return; }
+    var ok = n === q.cur;
+    if (ok) {
+      q.right++; q.streak++; btn.classList.add("right");
+      delete q.miss[q.cur];
+      $("#qhint").textContent = "对！孔 " + n + "　连击 " + q.streak;
+      playHole(n, { dur: 0.7 });
+    } else {
+      q.streak = 0; btn.classList.add("wrong");
+      q.miss[q.cur] = (q.miss[q.cur] || 0) + 1;
+      $("#qhint").textContent = "不对，是孔 " + q.cur + "（" + noteName(midiOf(byNum(q.cur))) + "）";
+      playHole(q.cur, { dur: 0.7 });
+    }
+    $("#qright").textContent = q.right;
+    $("#qstreak").textContent = q.streak;
+    $("#qacc").textContent = q.total ? Math.round(q.right / q.total * 100) + "%" : "–";
+    var miss = Object.keys(q.miss);
+    $("#qmiss").innerHTML = miss.length
+      ? "错过的孔：" + miss.map(function (n) { return "<span class='pill'>" + n + " ×" + q.miss[n] + "</span>"; }).join("")
+      : "";
+    setTimeout(qNext, ok ? 620 : 1150);
+  }
+  $("#qnext").addEventListener("click", qNext);
+  $("#qreplay").addEventListener("click", function () { if (q.cur) playHole(q.cur, { dur: 1.3 }); });
+
+  /* =========================================================
+     7. 跟弹训练
+     ========================================================= */
+  var tr = { on: false, timer: null, i: 0, list: [] };
+  function trList() {
+    var v = $("#trange").value;
+    if (v.indexOf("-") > 0) {
+      var a = v.split("-").map(Number);
+      var out = []; for (var n = a[0]; n <= a[1]; n++) out.push(n); return out;
+    }
+    if (v === "odd") return HOLES.map(function (h) { return h.n; }).filter(function (n) { return n % 2; });
+    return HOLES.map(function (h) { return h.n; }).filter(function (n) { return !(n % 2); });
+  }
+  function trStep() {
+    if (!tr.on) return;
+    var beat = 60 / Number($("#tbpm").value);
+    var n = tr.list[tr.i];
+    playHole(n, { dur: Math.max(0.3, beat * 0.8), long: true });
+    $("#tnow").textContent = "孔 " + n + "　" + noteName(midiOf(byNum(n))) + "　(" + (tr.i + 1) + "/" + tr.list.length + ")";
+    tr.i++;
+    if (tr.i >= tr.list.length) {
+      if ($("#tloop").classList.contains("on")) { tr.i = 0; }
+      else { trStop(); return; }
+    }
+    tr.timer = setTimeout(trStep, beat * 1000);
+  }
+  function trStop() { tr.on = false; clearTimeout(tr.timer); $("#tgo").textContent = "开始"; $("#tnow").textContent = "—"; }
+  $("#tgo").addEventListener("click", function () {
+    if (tr.on) { trStop(); return; }
+    tr.list = trList(); tr.i = 0; tr.on = true;
+    $("#tgo").textContent = "暂停"; trStep();
+  });
+  $("#tstop").addEventListener("click", trStop);
+  $("#tloop").addEventListener("click", function () { this.classList.toggle("on"); });
+  $("#tbpm").addEventListener("input", function () { $("#tbpmv").textContent = this.value + " BPM"; });
+
+  /* =========================================================
+     8. 节拍器（前瞻调度）
+     ========================================================= */
+  var mt = { on: false, timer: null, next: 0, beat: 0, beatLen: 0 };
+  var msel = $("#mh");
+  HOLES.forEach(function (h) {
+    var o = document.createElement("option"); o.value = h.n;
+    o.textContent = "孔 " + h.n + "（" + noteName(h.midi) + "）";
+    msel.appendChild(o);
+  });
+  msel.addEventListener("change", function () { $("#mhole").textContent = "孔 " + this.value; });
+  $("#mhole").textContent = "孔 1";
+
+  function mtSched() {
+    while (mt.next < audio().currentTime + 0.12) {
+      var sig = Number($("#msig").value);
+      var accent = mt.beat % sig === 0;
+      click(accent, Math.max(0, mt.next - audio().currentTime), Number($("#mvol").value) / 100);
+      if ($("#mbeat").checked) {
+        note(midiOf(byNum(Number(msel.value))), { when: Math.max(0, mt.next - audio().currentTime), dur: mt.beatLen * 0.8, vel: 0.85 });
+        light(Number(msel.value), mt.beatLen * 900);
       }
+      mt.next += mt.beatLen;
+      mt.beat++;
+      $("#mbeatdot").textContent = accent ? "●" : "○";
+      $("#mcount").textContent = "第 " + (mt.beat) + " 拍";
+    }
+  }
+  $("#mgo").addEventListener("click", function () {
+    if (mt.on) return;
+    audio();
+    mt.on = true; mt.beat = 0; mt.beatLen = 60 / Number($("#mbpm").value);
+    mt.next = audio().currentTime + 0.08;
+    mt.timer = setInterval(mtSched, 25);
+    this.disabled = true; $("#mstop").disabled = false;
+  });
+  $("#mstop").addEventListener("click", function () {
+    mt.on = false; clearInterval(mt.timer);
+    $("#mgo").disabled = false; $("#mstop").disabled = true;
+    $("#mbeatdot").textContent = "·"; $("#mcount").textContent = "—";
+  });
+  $("#mbpm").addEventListener("input", function () {
+    $("#mbpmv").textContent = this.value;
+    if (mt.on) mt.beatLen = 60 / Number(this.value);
+  });
+  $("#msig").addEventListener("change", function () { if (mt.on) mt.beat = 0; });
 
-      var updDraw = bindSlider(document.getElementById("sl-draw"), document.getElementById("inner-draw"));
-      var updBlow = bindSlider(document.getElementById("sl-blow"), document.getElementById("inner-blow"));
+  /* =========================================================
+     9. 调音器（麦克风 + 自相关测音）
+     ========================================================= */
+  var tuner = { ctx: null, an: null, buf: null, stream: null, raf: 0 };
+  function detectPitch(buf, sr) {
+    var SIZE = buf.length, rms = 0, i;
+    for (i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+    rms = Math.sqrt(rms / SIZE);
+    if (rms < 0.008) return null;
+    var best = -1, bestC = 0, shift, corr, n;
+    var maxShift = Math.floor(SIZE / 2);
+    for (shift = 12; shift < maxShift; shift++) {
+      corr = 0;
+      for (i = 0; i < SIZE - shift; i++) corr += buf[i] * buf[i + shift];
+      corr /= (SIZE - shift);
+      if (corr > bestC) { bestC = corr; best = shift; }
+    }
+    if (best <= 0) return null;
+    // 抛物线插值提高精度
+    var y0 = 0, y1 = bestC, y2 = 0;
+    corr = 0;
+    for (i = 0; i < SIZE - (best - 1); i++) corr += buf[i] * buf[i + best - 1];
+    y0 = corr / (SIZE - best + 1);
+    corr = 0;
+    for (i = 0; i < SIZE - (best + 1); i++) corr += buf[i] * buf[i + best + 1];
+    y2 = corr / (SIZE - best - 1);
+    var denom = 2 * (2 * y1 - y0 - y2);
+    var shift2 = denom ? best + (y2 - y0) / denom : best;
+    var freq = sr / shift2;
+    if (freq < 60 || freq > 2200) return null;
+    var midi = 69 + 12 * Math.log(freq / 440) / Math.LN2;
+    return { freq: freq, midi: midi };
+  }
+  function tunerLoop() {
+    if (!tuner.an) return;
+    tuner.an.getFloatTimeDomainData(tuner.buf);
+    var r = detectPitch(tuner.buf, tuner.ctx.sampleRate);
+    if (r) {
+      var near = Math.round(r.midi);
+      var cents = (r.midi - near) * 100;
+      $("#tunnote").textContent = noteName(near);
+      $("#tunhz").textContent = r.freq.toFixed(1) + " Hz";
+      $("#tuncents").textContent = (cents > 0 ? "+" : "") + cents.toFixed(1) + " 音分";
+      var pct = Math.max(-1, Math.min(1, cents / 50));
+      $("#tunbar").style.width = Math.abs(pct) * 50 + "%";
+      $("#tunbar").style.marginLeft = pct < 0 ? (50 - Math.abs(pct) * 50) + "%" : "50%";
+      $("#tunnote").style.color = Math.abs(cents) < 5 ? "var(--good)" : Math.abs(cents) < 20 ? "var(--amber)" : "var(--bad)";
+    } else {
+      $("#tunnote").textContent = "--"; $("#tunhz").textContent = "— Hz";
+      $("#tuncents").textContent = "—"; $("#tunbar").style.width = "0";
+    }
+    tuner.raf = requestAnimationFrame(tunerLoop);
+  }
+  $("#tunmic").addEventListener("click", function () {
+    if (tuner.stream) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $("#tunstate").textContent = "这个浏览器不支持"; return;
+    }
+    $("#tunstate").textContent = "请求权限中…";
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+      .then(function (stream) {
+        tuner.stream = stream;
+        tuner.ctx = audio();
+        var src = tuner.ctx.createMediaStreamSource(stream);
+        var hp = tuner.ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 120;
+        tuner.an = tuner.ctx.createAnalyser();
+        tuner.an.fftSize = 4096;
+        tuner.buf = new Float32Array(tuner.an.fftSize);
+        src.connect(hp).connect(tuner.an);
+        $("#tunstate").textContent = "正在听…（对着口琴吹）";
+        tunerLoop();
+      })
+      .catch(function (err) {
+        $("#tunstate").textContent = "打不开：" + (err && err.name === "NotAllowedError" ? "权限被拒" : (err && err.message) || "未知错误");
+      });
+  });
 
-      function applyZoom() {
-        var pct = Number(zoomSl.value);
-        board.style.setProperty("--z", String(pct / 100));
-        zoomLbl.textContent = Math.round(pct) + "%";
-        updDraw();
-        updBlow();
-      }
-      zoomSl.addEventListener("input", applyZoom);
-      applyZoom();
-    })();
-  </script>
+  /* ---------- 参考音播放 ---------- */
+  $("#refplay").addEventListener("click", function () { playHole(1, { dur: 1.6 }); });
+  $$("[data-ref]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var v = b.dataset.ref;
+      var list = v === "all" ? HOLES.map(function (h) { return h.n; }) : v.split(",").map(Number);
+      stopSeq();
+      var beat = 0.42, t = 0;
+      list.forEach(function (n, i) {
+        note(midiOf(byNum(n)), { when: t, dur: beat * 1.4, vel: 0.85 });
+        light(n, beat * 1400);
+        if (i % 3 === 0) { click(false, t, 0.25); t += beat; }
+      });
+    });
+  });
+
+  /* =========================================================
+     10. 顶栏 / 面板
+     ========================================================= */
+  $("#key").value = state.key;
+  $("#disp").value = state.disp;
+  $("#vol").value = state.vol;
+  document.documentElement.dataset.theme = state.theme;
+
+  $("#key").addEventListener("change", function () { state.key = this.value; save(SKEY, state.key); render(); });
+  $("#disp").addEventListener("change", function () { state.disp = this.value; save(SDISP, state.disp); render(); });
+  $("#vol").addEventListener("input", function () {
+    state.vol = Number(this.value); save(SVOL, String(state.vol));
+    if (master) master.gain.value = state.vol / 100 * 0.7;
+  });
+  $("#theme").addEventListener("click", function () {
+    state.theme = state.theme === "dark" ? "light" : "dark";
+    save(STHEME, state.theme); document.documentElement.dataset.theme = state.theme;
+  });
+  $("#reset").addEventListener("click", function () {
+    if (!confirm("清空本地保存的所有设置（调性、显示、音量、每孔八度偏移）？")) return;
+    [SKEY, SDISP, SVOL, SOFF, STHEME, SSEL].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    location.reload();
+  });
+
+  $$("nav.tabs button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      $$("nav.tabs button").forEach(function (x) { x.setAttribute("aria-selected", "false"); });
+      $$("section.panel").forEach(function (p) { p.classList.remove("active"); });
+      b.setAttribute("aria-selected", "true");
+      $("#panel-" + b.dataset.panel).classList.add("active");
+    });
+  });
+
+  document.addEventListener("pointerdown", function once() {
+    document.removeEventListener("pointerdown", once);
+    audio();
+  }, { once: true });
+
+  render();
+  markSel();
+})();
+</script>
 </body>
 </html>
